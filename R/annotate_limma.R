@@ -2,12 +2,13 @@
 # Function: Annotate and filter limma output
 # Date: 04/02/2020
 
-annotate.limma <- function(x, foldchange) {
+annotate.limma <- function(x, foldchange, annot) {
   
   # select specific columns
   x <- x %>%
     rownames_to_column("gene_symbol") %>%
-    select(gene_symbol, matches("_logFC"), P.Value, adj.P.Val, AveExpr)
+    dplyr::select(gene_symbol, matches("_logFC"), P.Value, adj.P.Val, AveExpr) %>%
+    inner_join(annot %>% dplyr::select(-c(gene_id)), by = 'gene_symbol')
 
   # filter by logFC
   varname1 <- paste0(gsub('_logFC','',colnames(x)[2]),'_DEGAnnot')

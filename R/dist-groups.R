@@ -8,6 +8,8 @@ library(tidyverse)
 library(xlsx)
 library(reshape2)
 
+source('R/filterExpr.R')
+
 load('data/collapsed_counts_matrix.RData')
 expr.counts.mat <- expr.counts[[1]]
 expr.counts.annot <- expr.counts[[2]]
@@ -18,8 +20,22 @@ rownames(meta) <- meta$sample
 meta$label2 <- ifelse(meta$label == "non_exercised", meta$label, "exercised")
 expr.counts.mat <- expr.counts.mat[,rownames(meta)]
 
+# filter expression
+expr.counts.mat <- filterExpr(expr.counts.mat)
 
-calc.dist <- function(exprDat, metaDat, group) {
+# create design
+var <- factor(meta[,'strain'])
+design <- model.matrix(~0+var)
+colnames(design) <- levels(var)
+rownames(design) <- meta$sample
+
+# voom normalize data
+y <- DGEList(counts = as.matrix(expr.counts.mat), genes = rownames(expr.counts.mat))
+y <- calcNormFactors(y)
+v <- voom(counts = y, design = design, plot = FALSE)
+voomData <- v$E
+
+calc.dist <- function(exprDat, metaDat, group, groupSamples = TRUE) {
   
   # if group is NULL, do not filter
   if(!is.null(group)){
@@ -42,59 +58,78 @@ calc.dist <- function(exprDat, metaDat, group) {
   dm4 <- dist(t(exprDat))
   g4 <- metaDat$strain
   
-  mat.dist <- as.matrix(dist_multi_centroids(dm4, g4))
+  if(groupSamples == TRUE){
+    mat.dist <- as.matrix(dist_multi_centroids(dm4, g4))
+  } else {
+    mat.dist <- dist_groups(dm4, g4)
+  }
   return(mat.dist)
 }
 
-# all mice together (4 strains x 2 groups)
-res <- calc.dist(exprDat = expr.counts.mat, metaDat = meta, group = NULL)
-res <- melt(res)
-res <- res %>%
-  filter(value != 0)
+# 1. Samples Group by Strain 
+test.fun <- function(exprDat, metaDat, fname){
+  # non-exercised/exercised
+  nonex <- calc.dist(exprDat, metaDat, group = "non_exercised")
+  ex <- calc.dist(exprDat, metaDat, group = "exercised")
+  if(!file.exists(fname)){
+    write.xlsx(nonex, file = fname, sheetName = "nonex", append = T)
+    write.xlsx(ex, file = fname, sheetName = "ex", append = T)
+  }
+  
+  # melt matrix
+  # non-exercised
+  nonex <- melt(nonex)
+  nonex <- nonex %>%
+    filter(value != 0) %>%
+    mutate(label = "nonex")
+  
+  # exercised
+  ex <- melt(ex)
+  ex <- ex %>%
+    filter(value != 0) %>%
+    mutate(label = "ex")
+  total <- rbind(ex, nonex)
+  
+  # shapiro test  
+  d <- with(total, value[label == "ex"] - value[label == "nonex"])
+  st <- shapiro.test(d)$p.value # Shapiro-Wilk normality test for the differences
+  print(paste0("Test of Normality Pval:", round(st, 2)))
+  if(st < 0.05){
+    print("Wilcoxon Test")
+    res <-  wilcox.test(value~label, data = total, paired = TRUE, correct=FALSE)$p.value
+  } else {
+    print("Paired T-test")
+    res <- t.test(value~label, data = total, paired = TRUE)$p.value # same
+  }
+  print(res)
+}
+# test.fun(exprDat = expr.counts.mat, metaDat = meta, fname = "results/distances/strain-distances-Counts.xlsx") # Counts 
+# Pvalue > 0.05. Distances between strains for non-exercised are not significantly different from exercised mice.
 
-# calculate distances between strains - non-exercised mice
-# B is close to E < I < A
-# E is close to I < B < A
-# I is close to E < B < A
-nonex <- calc.dist(exprDat = expr.counts.mat, metaDat = meta, group = "non_exercised")
-write.xlsx(nonex,  file = 'results/qc/strain-distances.xlsx', sheetName = 'nonex', append = TRUE)
-# calculate distances between strains - exercised mice
-# B is close to I < E < A
-# E is close to I < B < A
-# I is close to E < B < A
-ex <- calc.dist(exprDat = expr.counts.mat, metaDat = meta, group = "exercised")
-write.xlsx(ex,  file = 'results/qc/strain-distances.xlsx', sheetName = 'ex', append = TRUE)
+test.fun(exprDat = voomData, metaDat = meta, fname  = "results/distances/distances-across-strains.xlsx")  # Voom normalized
+# Pvalue < 0.05. Distances between strains for non-exercised are significantly different from exercised mice.
 
-# so the only change we see is the B strains were close to E strains in nonexercised
-# but become closer to I strain in exercised mice
-
-# now we will do pairwise comparison between nonex and ex
-nonex <- melt(nonex)
+# 2. Between Sample Comparison
+nonex <- calc.dist(exprDat = expr.counts.mat, metaDat = meta, group = "non_exercised", groupSamples = FALSE)
+ex <- calc.dist(exprDat = expr.counts.mat, metaDat = meta, group = "exercised", groupSamples = FALSE)
 nonex <- nonex %>%
-  filter(value != 0) %>%
-  mutate(label = "nonex")
-ex <- melt(ex)
+  as.data.frame() %>%
+  mutate(Label2 = "nonex")
 ex <- ex %>%
-  filter(value != 0) %>%
-  mutate(label = "ex")
+  as.data.frame() %>%
+  mutate(Label2 = "ex")
 total <- rbind(ex, nonex)
-
-# 1. check if data is paired
-# 2. sample size < 30, so let's do Shapiro Test
-d <- with(total, 
-          value[label == "ex"] - value[label == "nonex"])
-shapiro.test(d) # Shapiro-Wilk normality test for the differences
-# p-value > 0.05 
-# implying that the distribution of the differences (d) are not significantly different from normal distribution. 
-# In other words, we can assume the normality.
-# 3. So, now we can perform paired t-test
-# if the p-value was significant, we would have to do KS test
-total2 <- dcast(total, Var1+Var2~label, value.var = 'value')
-res <- t.test(value~label, data = total, paired = TRUE) # same
-res2 <- t.test(total2$nonex, total2$ex, paired = TRUE) # same
-
-# Conclusion
-# Pvalue > 0.05. 
-# We can then reject null hypothesis and conclude that the distances between strains for nonexercised is not significantly different from exercised mice.
-
-
+total <- total[grep('Within', total$Label),]
+total <- total[,c('Ex-Label','Ex-Distance','Nonex-Distance')]
+return.p <- function(x) {
+  print(x)
+  tt <- t.test(Distance~Label2, data = x, paired = FALSE)$p.value
+  wt <- wilcox.test(Distance~Label2, data = x, paired = FALSE)$p.value
+  res <- data.frame(t.test = tt, wilcox.test = wt)
+  return(res)
+}
+res <- plyr::ddply(total, 
+            .variables = 'Label', 
+            .fun = function(x) return.p(x))
+write.xlsx(x = res, file = 'results/distances/distances-between-strains.xlsx', row.names = FALSE)
+            

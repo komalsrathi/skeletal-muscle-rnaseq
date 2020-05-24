@@ -4,6 +4,10 @@
 library(reshape2)
 library(pheatmap)
 library(xlsx)
+library(limma)
+library(dplyr)
+
+source('R/filterExpr.R')
 
 # read data
 load('data/collapsed_counts_matrix.RData')
@@ -20,7 +24,7 @@ meta$group <- paste0(meta$strain, '-',meta$label)
 # expr <- expr.counts.mat
 # lb <- 'exercised'
 
-calc.var <- function(expr, meta, lb = NULL, fname){
+calc.var <- function(expr, meta, annot, lb = NULL, fname){
 
   # filter by label
   if(!is.null(lb)) {
@@ -31,8 +35,9 @@ calc.var <- function(expr, meta, lb = NULL, fname){
   # filter gene expression for low expression
   rownames(meta) <- meta$sample
   expr <- expr[,rownames(meta)]
-  keep.exprs <- filterByExpr(expr)
-  expr <- expr[keep.exprs,]
+  # keep.exprs <- filterByExpr(expr)
+  # expr <- expr[keep.exprs,]
+  expr <- filterExpr(expr.counts.mat = expr)
 
   if(identical(rownames(meta), colnames(expr))) {
     print("Proceed")
@@ -55,11 +60,13 @@ calc.var <- function(expr, meta, lb = NULL, fname){
   # adjust p-value using Bonferroni
   aov.res$AdjPval <- p.adjust(aov.res$Pval, method = "bonf")
   aov.res <- aov.res %>%
-    mutate(DEGAnnot = ifelse(AdjPval < 0.05, TRUE, FALSE))
+    mutate(DEGAnnot = ifelse(AdjPval < 0.05, TRUE, FALSE)) %>%
+    inner_join(annot %>% dplyr::select(-c(gene_id)), by = c("Gene" = "gene_symbol"))
   if(!dir.exists('results/anova')){
     system('mkdir -p results/anova')
   }
   table.fname <- file.path('results/anova/', paste0(fname, '.xlsx'))
+  write.table(x = aov.res %>% filter(DEGAnnot == TRUE), file = file.path('results/anova/', paste0(fname, '.txt')), row.names = FALSE, quote = F,  sep = "\t")
   write.xlsx(x = aov.res, file = table.fname, row.names = FALSE, sheetName = lb, append=T)
 
   # heatmap of adj pvalue < 0.05
@@ -84,7 +91,7 @@ calc.var <- function(expr, meta, lb = NULL, fname){
 
   # plot pheatmap
   heatmap.fname <- file.path('results/anova/', paste0(fname, '_heatmap.pdf'))
-  pdf(file = heatmap.fname, width = 10, height = 15)
+  pdf(file = heatmap.fname, width = 10, height = 18)
   pheatmap(fpkm.mat, cluster_cols = FALSE,
            main = paste("Genes (ANOVA P-adj < 0.05)", ":", nrow(fpkm.mat)),
            fontsize_col = 6, fontsize_row = 6,
@@ -92,6 +99,6 @@ calc.var <- function(expr, meta, lb = NULL, fname){
   dev.off()
 }
 
-calc.var(expr = expr.counts.mat, meta = meta, lb = 'exercised', fname = 'exercised-anova')
-calc.var(expr = expr.counts.mat, meta = meta, lb = 'non_exercised', fname = 'non-exercised-anova')
+calc.var(expr = expr.counts.mat, meta = meta, annot = expr.counts.annot, lb = 'exercised', fname = 'exercised-anova')
+calc.var(expr = expr.counts.mat, meta = meta, annot = expr.counts.annot, lb = 'non_exercised', fname = 'non-exercised-anova')
 

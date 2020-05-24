@@ -13,6 +13,7 @@ source('~/Projects/Utils/design_pairs.R')
 source('R/annotate_limma.R')
 source('R/PCA-plot.R')
 source('R/Volcano-plot.R')
+source('R/filterExpr.R')
 
 load('data/collapsed_counts_matrix.RData')
 expr.counts.mat <- expr.counts[[1]]
@@ -30,15 +31,16 @@ meta$litter[meta$litter == ""] <- "U"
 #var = 'label'
 #batch.correct = 'strain'
 # generalized function
-diff.expr <- function(expr, meta, var = 'label', batch.correct = NULL, fc = 1, fname = "plot_name", plx = 7, write_to_excel = FALSE){
+diff.expr <- function(expr, meta, annot, var = 'label', batch.correct = NULL, fc = 1, fname = "plot_name", plx = 7, write_to_excel = FALSE,  write_to_text = TRUE){
 
   # filter gene expression matrix by samples
   rownames(meta) <- meta$sample
   expr <- expr[,rownames(meta)]
 
   # filter gene expression for low expression
-  keep.exprs <- filterByExpr(expr)
-  expr <- expr[keep.exprs,]
+  # keep.exprs <- filterByExpr(expr)
+  # expr <- expr[keep.exprs,]
+  expr <- filterExpr(expr.counts.mat = expr)
 
   if(identical(rownames(meta), colnames(expr))) {
     print("Proceed")
@@ -106,7 +108,7 @@ diff.expr <- function(expr, meta, var = 'label', batch.correct = NULL, fc = 1, f
       outputLimma[,paste0(rev.comp,'_logFC')] <- -1*(outputLimma$logFC)
 
       # annotate and filter output
-      outputLimma <- annotate.limma(x = outputLimma, foldchange = fc)
+      outputLimma <- annotate.limma(x = outputLimma, foldchange = fc, annot)
       print(paste0("Output dimensions:", dim(outputLimma)))
     } else {
       print("No significant difference")
@@ -121,6 +123,22 @@ diff.expr <- function(expr, meta, var = 'label', batch.correct = NULL, fc = 1, f
     for (i in 1:length(newList)){
       if(nrow(newList[[i]]) > 1){
         write.xlsx(x = newList[i], file = xls.fname, row.names = FALSE, sheetName = "all_strains", append=T)
+        gc()
+      }
+    }
+  }
+  
+  # write to text file
+  if(write_to_text == TRUE){
+    system('mkdir -p results/summary')
+    txt.fname <- file.path('results/summary', paste0(fname, '.txt'))
+    for(i in 1:length(newList)){
+      if(nrow(newList[[i]] > 1)){
+        tmp <- newList[[i]] %>%
+          filter(adj.P.Val < 0.05)
+        if(nrow(tmp) > 0) {
+          write.table(tmp, file = txt.fname, quote = F, row.names = F, sep = "\t")
+        }
       }
     }
   }
@@ -132,6 +150,7 @@ diff.expr <- function(expr, meta, var = 'label', batch.correct = NULL, fc = 1, f
 # all strains together: Exercised (responders) vs Exercised (non-responders)
 # no need to combat adjust as library prep was done together
 all.strains <- diff.expr(expr = expr.counts.mat, meta = meta,
+                         annot = expr.counts.annot,
                          var = 'label',  batch.correct = NULL, fc = 0,
                          fname = "all-strains-exres-vs-exnonres", plx = 7,
-                         write_to_excel = FALSE)
+                         write_to_excel = FALSE, write_to_text = TRUE)

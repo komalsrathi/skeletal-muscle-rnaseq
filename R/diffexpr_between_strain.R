@@ -12,6 +12,7 @@ source('~/Projects/Utils/design_pairs.R')
 source('R/annotate_limma.R')
 source('R/PCA-plot.R')
 source('R/Volcano-plot.R')
+source('R/filterExpr.R')
 
 load('data/collapsed_counts_matrix.RData')
 expr.counts.mat <- expr.counts[[1]]
@@ -25,7 +26,7 @@ meta$litter[meta$litter == ""] <- "U"
 # 2. Between strain comparison: Exercised mice combined (responders + non-responders)
 
 # generalized function
-diff.expr <- function(expr, meta, type = "non_exercised", var = "strain", batch.correct = NULL, fc = 1, fname = "plot_name", plx = 7, write_to_excel = FALSE){
+diff.expr <- function(expr, meta, annot, type = "non_exercised", var = "strain", batch.correct = NULL, fc = 1, fname = "plot_name", plx = 7, write_to_excel = FALSE, write_to_text = TRUE){
 
   # filter meta file by type
   meta <- meta %>%
@@ -37,8 +38,9 @@ diff.expr <- function(expr, meta, type = "non_exercised", var = "strain", batch.
   expr <- expr[,rownames(meta)]
 
   # filter gene expression for low expression
-  keep.exprs <- filterByExpr(expr)
-  expr <- expr[keep.exprs,]
+  # keep.exprs <- filterByExpr(expr)
+  # expr <- expr[keep.exprs,]
+  expr <- filterExpr(expr.counts.mat = expr)
 
   if(identical(rownames(meta), colnames(expr))) {
     print("Proceed")
@@ -107,7 +109,7 @@ diff.expr <- function(expr, meta, type = "non_exercised", var = "strain", batch.
       outputLimma[,paste0(rev.comp,'_logFC')] <- -1*(outputLimma$logFC)
 
       # annotate and filter output
-      outputLimma <- annotate.limma(x = outputLimma, foldchange = fc)
+      outputLimma <- annotate.limma(x = outputLimma, foldchange = fc, annot)
       outputLimma$comparison <- comp
       print(paste0("Output dimensions:", dim(outputLimma)))
     } else {
@@ -125,6 +127,23 @@ diff.expr <- function(expr, meta, type = "non_exercised", var = "strain", batch.
       if(nrow(newList[[i]]) > 1){
         sheetname <- unique(as.character(newList[[i]]$comp))
         write.xlsx(x = newList[i], file = xls.fname, row.names = FALSE, sheetName = sheetname, append=T)
+        gc()
+      }
+    }
+  }
+  
+  # write to text file
+  if(write_to_text == TRUE){
+    system('mkdir -p results/summary')
+    for(i in 1:length(newList)){
+      if(nrow(newList[[i]] > 1)){
+        sheetname <- unique(as.character(newList[[i]]$comp))
+        txt.fname <- file.path('results/summary', paste0(fname, '-',sheetname,'.txt'))
+        tmp <- newList[[i]] %>%
+          filter(adj.P.Val < 0.05)
+        if(nrow(tmp) > 0) {
+          write.table(tmp, file = txt.fname, quote = F, row.names = F, sep = "\t")
+        }
       }
     }
   }
@@ -135,23 +154,39 @@ diff.expr <- function(expr, meta, type = "non_exercised", var = "strain", batch.
 
 # 1. between strain comparison of non-exercised mice
 nonex.between.strains <- diff.expr(expr = expr.counts[[1]], meta = meta,
+                                   annot = expr.counts.annot,
                                    type = "non_exercised",
-                                   var = "strain", batch.correct = NULL, fc = 0, fname = "between-strain-nonex", plx = 7, write_to_excel = FALSE)
+                                   var = "strain", batch.correct = NULL, fc = 0, 
+                                   fname = "between-strain-nonex", plx = 7, 
+                                   write_to_excel = FALSE, 
+                                   write_to_text = TRUE)
 
 # 2. between strain comparison of exercised mice (responders + non-responders)
 ex.between.strains <- diff.expr(expr = expr.counts[[1]], meta = meta,
+                                annot = expr.counts.annot,
                                 type = c("exercised_responders","exercised_non_responders"),
-                                var = "strain", batch.correct = NULL, fc = 0, fname = "between-strain-ex", plx = 7, write_to_excel = FALSE)
+                                var = "strain", batch.correct = NULL, 
+                                fc = 0, fname = "between-strain-ex", plx = 7, 
+                                write_to_excel = FALSE,
+                                write_to_text = TRUE)
 
 # qc: check differences between exercised responders
 ex.res.between.strains <- diff.expr(expr = expr.counts[[1]], meta = meta,
+                                    annot = expr.counts.annot,
                                     type = c("exercised_responders"),
-                                    var = "strain", batch.correct = NULL, fc = 0, fname = "between-strain-exres", plx = 3, write_to_excel = FALSE)
+                                    var = "strain", batch.correct = NULL, 
+                                    fc = 0, fname = "between-strain-exres", plx = 3, 
+                                    write_to_excel = FALSE, 
+                                    write_to_text = TRUE)
 
 # qc: check differences between exercised non-responders
 ex.nonres.between.strains <- diff.expr(expr = expr.counts[[1]], meta = meta,
+                                       annot = expr.counts.annot,
                                        type = c("exercised_non_responders"),
-                                       var = "strain", batch.correct = NULL, fc = 0, fname = "between-strain-exnonres", plx = 3, write_to_excel = FALSE)
+                                       var = "strain", batch.correct = NULL, fc = 0, 
+                                       fname = "between-strain-exnonres", plx = 3, 
+                                       write_to_excel = FALSE,
+                                       write_to_text = TRUE)
 
 # observation:
 # in all four cases, differences are seen between A vs E, I and B but not between other strains.
