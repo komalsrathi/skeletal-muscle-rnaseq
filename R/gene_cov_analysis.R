@@ -1,7 +1,6 @@
 # Author: Komal S. Rathi
 # Function: Gene expression correlation with covariates analysis
-# 1. Overall nonex vs ex
-# 2. Per Strain; nonex vs ex
+
 library(usedist)
 library(edgeR)
 library(tidyverse)
@@ -51,12 +50,88 @@ if(identical(rownames(covariates), rownames(meta))){
 }
 
 # transpose matrix
-voomData.trn <- t(voomData)
-if(identical(rownames(voomData.trn), rownames(meta))){
-  tmp <- cbind(meta, voomData.trn[,1:2])
-  tmp <- tmp %>%
-    dplyr::select(c(label2, strain, VO2max, `mt-Co1`)) %>%
-    mutate(gene = `mt-Co1`)
+voomData.trn <- melt(as.matrix(voomData), varnames = c("gene","sample"), value.name = "expr")
+
+# function
+reg.analysis <- function(x, df){
+  x <- x %>%
+    inner_join(df %>% rownames_to_column("sample"), by = 'sample')
+  covar <- colnames(x)[4]
+  colnames(x)[4] <- 'covar'
+  
+  # fit model
+  fit <- lm(expr ~ covar, data = x)
+  
+  # extract info 
+  res <- tidy(fit)
+  res <- res %>%
+    filter(term != "(Intercept)") %>%
+    mutate(term = covar) %>%
+    as.data.frame()
+  
+  # add overall model p-value and r-squared
+  res$model.rSquared <- summary(fit)$r.squared
+  # res$model.pValue <- anova(fit)$'Pr(>F)'[1] same as covariate pvalue
+  
+  return(res)
+}
+
+# correlation with gene exp (overall)
+covars <- colnames(meta[,6:ncol(meta)])
+for(i in 1:length(covars)){
+  covar <- covars[i]
+  print(covar)
+  df <- meta %>%
+    dplyr::select(covar)
+  res <- plyr::ddply(voomData.trn, .variables = 'gene', .fun = function(x) reg.analysis(x, df))
+  
+  # adjust pvalues for each
+  res <- res %>%
+    mutate(fdr = p.adjust(p.value, method = "fdr")) %>%
+    mutate(correlated = ifelse(fdr < 0.05, TRUE, FALSE)) %>%
+    arrange(fdr) 
+  
+  # write out files
+  fname <- paste0('results/covars/',covar,'_model_output.xlsx')
+  write.xlsx(x = res, file = fname, row.names = FALSE)
+}
+
+# repeat this for each strain
+strains <- unique(meta$strain)
+for(j in 1:length(strains)){
+  print(strains[j])
+  st <- gsub(' ','_',strains[j])
+  subset.meta <- meta %>%
+    mutate(tmp = sample) %>%
+    filter(strain == strains[j]) %>%
+    column_to_rownames('tmp')
+  
+  subset.trn <- voomData.trn %>%
+    filter(sample %in% subset.meta$sample)
+  
+  covars <- colnames(subset.meta[,6:ncol(subset.meta)])
+  for(i in 1:length(covars)){
+    covar <- covars[i]
+    print(covar)
+    fname <- paste0('results/covars/',st,'_',covar,'_model_output.xlsx')
+    if(!file.exists(fname)){
+      df <- subset.meta %>%
+        dplyr::select(covar)
+      if(all(is.na(df[,covar]))){
+        next
+      }
+      res <- plyr::ddply(subset.trn, .variables = 'gene', .fun = function(x) reg.analysis(x, df))
+      
+      # adjust pvalues for each
+      res <- res %>%
+        mutate(fdr = p.adjust(p.value, method = "fdr")) %>%
+        mutate(correlated = ifelse(fdr < 0.05, TRUE, FALSE)) %>%
+        arrange(fdr) 
+      
+      # write out files
+      write.xlsx(x = res, file = fname, row.names = FALSE)
+    }
+  }
 }
 
 # boxplots of covariates
@@ -64,7 +139,7 @@ for(i in 6:ncol(meta)){
   forbox <- meta
   ylab <- colnames(forbox)[i]
   colnames(forbox)[i]  <- 'covariate'
-  fname <- paste0('results/covars/',ylab,'.png')
+  fname <- paste0('results/covars/plots/',ylab,'.png')
   my_comparisons <- list(c("ANT1 ME", "IAI ME"), 
                          c("ANT1 ME", "B6 ME"), 
                          c("ANT1 ME", "EC77 ME"),
@@ -103,21 +178,4 @@ for(i in 6:ncol(meta)){
     res <- rbind(res, tt)
   }
 }
-write.table(res, file = 'results/covars/covar_association.txt', quote = F, row.names = F, sep = "\t")
-
-# correlation with gene exp
-# test <- meta %>%
-#   mutate(label = label2) %>%
-#   dplyr::select(sample, label, strain, weight, VO2max, running.time) %>%
-#   cbind(gene = tmp$gene)
-# # dput(test)
-# summary(lm(gene ~ VO2max + label, data = test))
-# summary(lm(gene ~ VO2max + label + strain, data = test))
-# summary(lm(gene ~ label + strain, data = test))
-# fit <- lm(gene ~ VO2max + label +  strain, data = test)
-# res <- tidy(fit)
-# res %>%
-#   top
-# rSquared <- summary(fit)$r.squared
-# pVal <- anova(fit)$'Pr(>F)'[1]
-
+write.xlsx(res, file = 'results/covars/covar_association_withStrain.xlsx', row.names = FALSE)
