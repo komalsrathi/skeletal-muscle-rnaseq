@@ -6,7 +6,7 @@ setwd('~/Projects/Skeletal_Muscle_Patrick/')
 
 library(tidyverse)
 
-# load RSEM data
+# load RSEM data (untrimmed)
 load('data/skeletal_muscle_mm10.RData')
 
 # annotation
