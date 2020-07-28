@@ -39,21 +39,29 @@ for(i in 1:length(lf)){
     inner_join(human.genes, by = c("gene" = "MGI.symbol")) %>%
     distinct(HGNC.symbol, .keep_all = TRUE) %>%
     dplyr::select(HGNC.symbol, p.value, estimate, model.rSquared)
+  
+  # version 1
   res.v1 <- res %>%
     arrange(p.value, desc(model.rSquared)) %>%
     mutate(rank = seq(from = 1, to = nrow(res), by = 1))
+  
+  # version 2
   pos <- res %>%
     filter(estimate > 0) %>%
-    arrange(p.value, desc(model.rSquared)) %>%
+    arrange(p.value, desc(model.rSquared))
+  pos <- pos %>%
     mutate(rank = seq(from = 1, to = nrow(pos), by = 1))
   neg <- res %>%
     filter(estimate < 0) %>%
-    arrange(p.value, desc(model.rSquared)) %>%
+    arrange(p.value, desc(model.rSquared)) 
+  neg <- neg %>%
     mutate(rank = rev(seq(from = (nrow(pos) + 1), to = nrow(res), by = 1)))
   res.v2 <- rbind(pos, neg)
+  res.v2 <- res.v2 %>%
+    arrange(rank)
   fname <- gsub('.*/|_model_output.xlsx', '', lf[i])
   fname <- file.path('results/gsea_preranked_input', fname)
-  write.table(res.v1[,c('HGNC.symbol','rSquared.est')], file = paste0(fname,'_rankedlist_v1.txt'), quote = F, sep = "\t", row.names = F, col.names = F)
-  write.table(res.v2[,c('HGNC.symbol','rSquared.est')], file = paste0(fname,'_rankedlist_v2.txt'), quote = F, sep = "\t", row.names = F, col.names = F)
+  write.table(res.v1[,c('HGNC.symbol','rank')], file = paste0(fname,'_rankedlist_v1.txt'), quote = F, sep = "\t", row.names = F, col.names = F)
+  write.table(res.v2[,c('HGNC.symbol','rank')], file = paste0(fname,'_rankedlist_v2.txt'), quote = F, sep = "\t", row.names = F, col.names = F)
 }
 

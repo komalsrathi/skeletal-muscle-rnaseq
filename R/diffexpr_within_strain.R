@@ -7,6 +7,28 @@ library(tidyverse)
 library(limma)
 library(edgeR)
 library(xlsx)
+library(optparse)
+
+option_list <- list(
+  make_option(c("--counts_matrix"), type = "character",
+              help = "RData object of counts"),
+  make_option(c("--meta_file"), type = "character",
+              help = "Metadata file for samples (.tsv)"),
+  make_option(c("--type"), type = "character",
+              help = "Type of comparison"),
+  make_option(c("--prefix"), type = "character",
+              help = "Prefix for output files"),
+  make_option(c("--outdir"), type = "character",
+              help = "Output directory path")
+)
+
+# parse parameters
+opt <- parse_args(OptionParser(option_list = option_list))
+counts_matrix <- opt$counts_matrix
+meta_file <- opt$meta_file
+type <- opt$type
+prefix <- opt$prefix
+outdir <- opt$outdir
 
 source('~/Projects/Utils/design_pairs.R')
 source('R/annotate_limma.R')
@@ -14,12 +36,10 @@ source('R/PCA-plot.R')
 source('R/Volcano-plot.R')
 source('R/filterExpr.R')
 
-load('data/collapsed_counts_matrix.RData')
+load(counts_matrix)
 expr.counts.mat <- expr.counts[[1]]
 expr.counts.annot <- expr.counts[[2]]
-meta <- read.delim('data/meta-data-withlitter.txt', stringsAsFactors = F)
-meta$label <- gsub('-','_',meta$label)
-meta$litter[meta$litter == ""] <- "U"
+meta <- read.delim(meta_file, stringsAsFactors = F)
 
 # Analysis
 # 3. Within strain comparison: Exercised combined (responders + non-responders) vs Non-exercised
@@ -73,16 +93,18 @@ diff.expr <- function(expr, meta, annot, st, type = "non_exercised", var = "labe
   }
   
   # tsne and pca plot of voom normalized data
-  if(!dir.exists('results/pca')){
-    system('mkdir -p results/pca')
+  pca.out <- file.path(outdir, 'pca')
+  if(!dir.exists(pca.out)){
+    system(paste0('mkdir -p ', pca.out))
   }
   pca.fname <- paste0(st,'-',fname, '.pdf')
-  pca.plot(voomData = voomData, meta = meta, fname = file.path('results/pca', pca.fname))
+  pca.plot(voomData = voomData, meta = meta, fname = file.path(pca.out, pca.fname))
   
-  if(!dir.exists('results/tsne')){
-    system('mkdir -p results/tsne')
+  tsne.out <- file.path(outdir, 'tsne')
+  if(!dir.exists(tsne.out)){
+    system(paste0('mkdir -p ', tsne.out))
   }
-  tsne.plot(voomData = voomData, meta = meta, fname = file.path('results/tsne', pca.fname), plx = plx)
+  tsne.plot(voomData = voomData, meta = meta, fname = file.path(tsne.out, pca.fname), plx = plx)
   
   # all levels of design
   all.pairs <- design.pairs(levels = colnames(design))
@@ -101,11 +123,12 @@ diff.expr <- function(expr, meta, annot, st, type = "non_exercised", var = "labe
     outputLimma <- topTable(fit2, coef = i, number = Inf)
     
     # plot volcano
+    volcano.out <- file.path(outdir, 'volcano')
     volc.fname <- paste0(st,'-',fname, '-volcano.pdf')
-    if(!dir.exists('results/volcano')){
-      system('mkdir -p results/volcano')
+    if(!dir.exists(volcano.out)){
+      system(paste0('mkdir -p ', volcano.out))
     }
-    plotVolcano(result = outputLimma, fname = file.path('results/volcano', volc.fname), yaxis = "P.Value", lfcutoff = 0, pvalcutoff = 0.05)
+    plotVolcano(result = outputLimma, fname = file.path(volcano.out, volc.fname), yaxis = "P.Value", lfcutoff = 0, pvalcutoff = 0.05)
     
     if(nrow(outputLimma) > 0){
       outputLimma[,paste0(comp,'_logFC')] <- outputLimma$logFC
@@ -123,18 +146,19 @@ diff.expr <- function(expr, meta, annot, st, type = "non_exercised", var = "labe
   }
   
   strain  <- gsub(' ','_',st)
-  system('mkdir -p results/summary')
+  summary.out <- file.path(outdir, 'summary')
+  system(paste0('mkdir -p ', summary.out))
   
   # write to excel file
   if(write_to_excel == TRUE){
-    xls.fname <- file.path('results/summary',paste0(fname,'.xlsx'))
+    xls.fname <- file.path(summary.out, paste0(fname, '.xlsx'))
     write.xlsx(x = outputLimma, file = xls.fname, row.names = FALSE, sheetName = strain, append=T)
     gc()
   }
   
   # write to text file
   if(write_to_text == TRUE){
-    txt.fname <- file.path('results/summary', paste0(fname,'-',strain, '.txt'))
+    txt.fname <- file.path(summary.out, paste0(fname, '-', strain, '.txt'))
     if(nrow(outputLimma) > 1){
       tmp <- outputLimma %>%
         filter(adj.P.Val < 0.05)
@@ -149,24 +173,15 @@ diff.expr <- function(expr, meta, annot, st, type = "non_exercised", var = "labe
 strains <- unique(meta$strain)
 for(i in 1:length(strains)){
   st <- strains[i]
-  
-  # ex vs nonex
   diff.expr(expr = expr.counts.mat,
             meta = meta, 
             st = st,
             annot = expr.counts.annot,
             var = "label",
-            type = "non_exercised", 
-            fname = "within-strain-ex-vs-nonex", plx = 3,
-            write_to_excel = TRUE, write_to_text = TRUE)
+            type = type, 
+            fname = prefix, 
+            plx = 3,
+            write_to_excel = TRUE, 
+            write_to_text = TRUE)
   
-  # ex res vs ex non-res
-  diff.expr(expr = expr.counts.mat,
-            meta = meta,
-            st = st,
-            annot = expr.counts.annot,
-            var = "label",
-            type = "exercised",
-            fname = "within-strain-exres-vs-exnonres", plx = 1,
-            write_to_excel = TRUE, write_to_text = TRUE)
 }

@@ -2,15 +2,35 @@
 # Function: To create collapsed matrices of gene symbols and samples
 # Date: 04/02/2020
 
-setwd('~/Projects/Skeletal_Muscle_Patrick/')
-
+library(optparse)
 library(tidyverse)
+library(data.table)
+
+option_list <- list(
+  make_option(c("--input"), type = "character",
+              help = "RData object with merged RSEM"),
+  make_option(c("--annot"), type = "character",
+              help = "Annotation in tab delim format"),
+  make_option(c("--prefix"), type = "character",
+              help = "Prefix for output files"),
+  make_option(c("--outdir"), type = "character",
+              help = "Output directory path")
+)
+
+# parse parameters
+opt <- parse_args(OptionParser(option_list = option_list))
+input <- opt$input
+annot <- opt$annot
+prefix <- opt$prefix
+outdir <- opt$outdir
 
 # load RSEM data (untrimmed)
-load('data/skeletal_muscle_mm10.RData')
+load(input)
+# load('data/skeletal_muscle_mm10.RData')
 
 # annotation
-annot <- data.table::fread('data/gencode.vM17.annotation.txt')
+annot <- data.table::fread(annot)
+# annot <- data.table::fread('data/gencode.vM17.annotation.txt')
 annot <- annot %>%
   select(gene_id,  gene_symbol, biotype) %>%
   unique()
@@ -25,7 +45,7 @@ collapse.mat <- function(expr, geneAnnot){
   
   # collapse to gene symbols
   expr <- expr %>%
-    dplyr::mutate(means = rowMeans(.[3:50])) %>%
+    dplyr::mutate(means = rowMeans(select(.,-gene_id, -gene_symbol))) %>%
     arrange(desc(means)) %>%
     distinct(gene_symbol, .keep_all = TRUE) %>% 
     dplyr::select(-c(means)) %>%
@@ -53,5 +73,8 @@ expr.fpkm <- collapse.mat(expr = expr.fpkm, geneAnnot = annot)
 expr.fpkm.annot <- expr.fpkm[[2]]
 expr.fpkm.mat <- expr.fpkm[[1]]
 
-save(expr.counts, file = "data/collapsed_counts_matrix.RData")
-save(expr.fpkm, file = "data/collapsed_fpkm_matrix.RData")
+file1 <- file.path(outdir, paste0(prefix,'_collapsed_counts_matrix.RData'))
+file2 <- file.path(outdir, paste0(prefix,'_collapsed_fpkm_matrix.RData'))
+
+save(expr.counts, file = file1)
+save(expr.fpkm, file = file2)

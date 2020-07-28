@@ -2,17 +2,32 @@
 # Date: 04/20/2020
 # Function: Sample correlation heatmap
 
+library(optparse)
 library(pheatmap)
 library(edgeR)
 
-load('data/collapsed_counts_matrix.RData')
+option_list <- list(
+  make_option(c("--counts_matrix"), type = "character",
+              help = "RData object of counts"),
+  make_option(c("--meta_file"), type = "character",
+              help = "Metadata file for samples (.tsv)"),
+  make_option(c("--outdir"), type = "character",
+              help = "Output directory path")
+)
+
+# parse parameters
+opt <- parse_args(OptionParser(option_list = option_list))
+counts_matrix <- opt$counts_matrix
+meta_file <- opt$meta_file
+outdir <- opt$outdir
+
+# load data
+load(counts_matrix)
 expr.counts.mat <- expr.counts[[1]]
 expr.counts.annot <- expr.counts[[2]]
-meta <- read.delim('data/meta-data-withlitter.txt', stringsAsFactors = F)
-meta$label <- gsub('-','_',meta$label)
-meta$litter[meta$litter == ""] <- "U"
+meta <- read.delim(meta_file, stringsAsFactors = F)
 rownames(meta) <- meta$sample
-meta$label2 <- ifelse(meta$label == "non_exercised", meta$label, "exercised")
+meta$label <- ifelse(meta$label == "non_exercised", meta$label, "exercised")
 expr.counts.mat <- expr.counts.mat[,rownames(meta)]
 
 # filter low expression
@@ -22,10 +37,11 @@ expr.counts.mat <- expr.counts.mat[keep.exprs,]
 # calculate correlation
 myCor <- cor(log2(expr.counts.mat+1), method = "pearson")
 myCorNames <- rownames(myCor)
-pdf(file = 'results/qc/sample_correlation.pdf', width = 20, height = 15)
-pheatmap(myCor, annotation_row = meta[c("label2","label","strain")],
-         annotation_col = meta[c("label2","label","strain")],
-         main = "Sample Correlation Heatmap\n",fontsize = 12,
+fname <- file.path(outdir, 'sample_correlation.pdf')
+pdf(file = fname, width = 20, height = 15)
+pheatmap(myCor, annotation_row = meta[c("label","strain")],
+         annotation_col = meta[c("label","strain")],
+         main = "Sample Correlation Heatmap\n", fontsize = 12,
          display_numbers = TRUE)
 dev.off()
 
