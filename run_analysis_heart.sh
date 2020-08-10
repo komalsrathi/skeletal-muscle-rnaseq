@@ -36,11 +36,59 @@ Rscript R/sample_correlation.R \
 --meta_file data/heart/heart-meta-data.txt \
 --outdir results/heart/qc
 
-# expression per sample
+# expression per sample (heart specific genes)
 Rscript R/expression_per_sample.R \
 --fpkm_matrix data/heart/heart_collapsed_fpkm_matrix.RData \
 --meta_file data/heart/heart-meta-data.txt \
 --title "Heart Specific Genes" \
 --prefix heart_specific_genes_expr \
 --outdir results/heart/qc \
---gene_list data/heart/heart-specific-genes.txt
+--gene_list data/heart/heart-specific-genes.txt \
+--sample TRUE \
+--strain FALSE \
+--group FALSE \
+--width 15 \
+--height 6
+
+
+# expression per strain (heart specific genes)
+Rscript R/expression_per_sample.R \
+--fpkm_matrix data/heart/heart_collapsed_fpkm_matrix.RData \
+--meta_file data/heart/heart-meta-data.txt \
+--title "Heart Specific Genes" \
+--prefix heart_specific_genes_expr_byStrain \
+--outdir results/heart/qc \
+--gene_list data/heart/heart-specific-genes.txt \
+--sample FALSE \
+--strain TRUE \
+--group FALSE \
+--width 15 \
+--height 6
+
+# expression per sample (housekeeping genes)
+Rscript R/expression_per_sample.R \
+--fpkm_matrix data/heart/heart_collapsed_fpkm_matrix.RData \
+--meta_file data/heart/heart-meta-data.txt \
+--title "House Keeping Genes" \
+--prefix house_keeping_genes_expr \
+--outdir results/heart/qc \
+--gene_list data/house-keeping-genes.txt \
+--sample TRUE \
+--strain FALSE \
+--group FALSE \
+--width 15 \
+--height 6
+
+# expression per sample grouped by cell type
+Rscript R/expression_per_sample.R \
+--fpkm_matrix data/heart/heart_collapsed_fpkm_matrix.RData \
+--meta_file data/heart/heart-meta-data.txt \
+--title "Heart Specific Genes" \
+--prefix heart_specific_genes_expr_byCellType \
+--outdir results/heart/qc \
+--gene_list data/heart/heart-specific-genes.txt \
+--sample FALSE \
+--strain FALSE \
+--group TRUE \
+--width 15 \
+--height 6
