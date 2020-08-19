@@ -111,3 +111,12 @@ Rscript R/expression_per_sample.R \
 --width 15 \
 --height 6 \
 --view sample
+
+# Within strain ex vs nonex
+# using batch corrected data obtained with atrial cardiomyocyte expression levels
+Rscript R/diffexpr_within_strain.R \
+--counts_matrix data/heart/heart_collapsed_counts_matrix_batchcorrected.RData \
+--meta_file data/heart/heart-meta-data.txt \
+--type non_exercised \
+--prefix within-strain-ex-vs-nonex-batchcorrected \
+--outdir results/heart
