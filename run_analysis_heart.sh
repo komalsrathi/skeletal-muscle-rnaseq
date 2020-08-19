@@ -48,7 +48,8 @@ Rscript R/expression_per_sample.R \
 --strain FALSE \
 --group FALSE \
 --width 15 \
---height 6
+--height 6 \
+--view sample
 
 
 # expression per strain (heart specific genes)
@@ -63,7 +64,8 @@ Rscript R/expression_per_sample.R \
 --strain TRUE \
 --group FALSE \
 --width 15 \
---height 6
+--height 6 \
+--view strain
 
 # expression per sample (housekeeping genes)
 Rscript R/expression_per_sample.R \
@@ -77,18 +79,35 @@ Rscript R/expression_per_sample.R \
 --strain FALSE \
 --group FALSE \
 --width 15 \
---height 6
+--height 6 \
+--view sample
 
-# expression per sample grouped by cell type
+# expression per sample grouped by cell type per strain
 Rscript R/expression_per_sample.R \
 --fpkm_matrix data/heart/heart_collapsed_fpkm_matrix.RData \
 --meta_file data/heart/heart-meta-data.txt \
 --title "Heart Specific Genes" \
---prefix heart_specific_genes_expr_byCellType \
+--prefix heart_specific_genes_expr_perCellType_perStrain \
 --outdir results/heart/qc \
 --gene_list data/heart/heart-specific-genes.txt \
 --sample FALSE \
 --strain FALSE \
 --group TRUE \
 --width 15 \
---height 6
+--height 6 \
+--view strain
+
+# expression per sample grouped by cell type per sample
+Rscript R/expression_per_sample.R \
+--fpkm_matrix data/heart/heart_collapsed_fpkm_matrix.RData \
+--meta_file data/heart/heart-meta-data.txt \
+--title "Heart Specific Genes" \
+--prefix heart_specific_genes_expr_perCellType_perSample \
+--outdir results/heart/qc \
+--gene_list data/heart/heart-specific-genes.txt \
+--sample FALSE \
+--strain FALSE \
+--group TRUE \
+--width 15 \
+--height 6 \
+--view sample
