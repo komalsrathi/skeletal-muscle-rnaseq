@@ -10,6 +10,8 @@ source('~/Projects/Utils/pubTheme.R')
 option_list <- list(
   make_option(c("--fpkm_matrix"), type = "character",
               help = "RData object of FPKM"),
+  make_option(c("--gene_list"), type = "character",
+              help = "Gene list"),
   make_option(c("--outdir"), type = "character",
               help = "Output directory path")
 )

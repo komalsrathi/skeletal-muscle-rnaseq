@@ -21,6 +21,10 @@ counts_matrix <- opt$counts_matrix
 meta_file <- opt$meta_file
 outdir <- opt$outdir
 
+# make output directories
+outdir <- file.path(outdir, 'clustering-qc')
+dir.create(outdir, showWarnings = F, recursive = TRUE)
+
 # load data
 load(counts_matrix)
 expr.counts.mat <- expr.counts[[1]]

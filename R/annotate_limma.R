@@ -14,7 +14,6 @@ annotate.limma <- function(x, foldchange, annot) {
   varname1 <- paste0(gsub('_logFC','',colnames(x)[2]),'_DEGAnnot')
   varname2 <- paste0(gsub('_logFC','',colnames(x)[3]),'_DEGAnnot')
   x <- x %>%
-    #filter(abs(!!as.symbol(colnames(x)[2])) > foldchange) %>%
     mutate(!!varname1 := ifelse(!!as.symbol(colnames(x)[2]) > foldchange, "Up", "Down"),
            !!varname2 := ifelse(!!as.symbol(colnames(x)[3]) > foldchange, "Up", "Down"))
   

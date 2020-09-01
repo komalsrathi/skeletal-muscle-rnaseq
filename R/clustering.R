@@ -1,7 +1,6 @@
 # Author: Komal S. Rathi
 # Date: 03/05/2020
 # Function: Clustering t-SNE
-# combat adjust - not needed because library prep was done together
 
 library(optparse)
 library(tidyverse)
@@ -27,6 +26,10 @@ annot <- opt$annot
 outdir <- opt$outdir
 meta_file <- opt$meta_file
 
+# make output directories
+outdir <- file.path(outdir, 'clustering-qc')
+dir.create(outdir, showWarnings = F, recursive = TRUE)
+
 # load meta
 df <- read.delim(meta_file, stringsAsFactors = F)
 
@@ -36,7 +39,6 @@ expr.fpkm <- expr.fpkm[[1]]
 expr.fpkm <- expr.fpkm[apply(expr.fpkm[,-1], 1, function(x) !all(x==0)),]
 
 # meta
-df$type <- gsub("[0-9].*", "", df$sample)
 rownames(df) <- df$sample
 df <- df[colnames(expr.fpkm),]
 
@@ -44,25 +46,23 @@ df <- df[colnames(expr.fpkm),]
 hkgenes <- c("Actb", "Tuba1a", "Gapdh", "Ldha", "Rpl19")
 
 # correct for strain
-expr.fpkm.corrected <- ComBat(dat = log2(expr.fpkm + 1), batch = df$type) 
+expr.fpkm.corrected <- ComBat(dat = log2(expr.fpkm + 1), batch = df$strain) 
 
 # t-SNE before combat adjustment
 set.seed(42)
 tsneOut <- Rtsne(t(log2(expr.fpkm + 1)), initial_dims = 50, perplexity = 8, max_iter = 1000)
 tsneOut <- data.frame(tsneOut$Y, df)
 p <- ggplot(tsneOut, aes(X1, X2)) +
-  geom_point(size = 5, alpha = 0.5, aes(color = label)) +
-  geom_text(aes(label = type)) + 
+  geom_point(size = 5, alpha = 0.5, aes(shape = label, color = strain)) +
   theme_bw() +
-  ggtitle("T-SNE Clustering (Before Batch Correction)") +
+  ggtitle("T-SNE Clustering (Before Batch Correction for Strain)") +
   theme_Publication2() + xlab("PC1") + ylab("PC2") 
 
 expr.fpkm.hk <- expr.fpkm[rownames(expr.fpkm) %in% hkgenes,]
 tsneOut <- Rtsne(t(log2(expr.fpkm.hk + 1)), initial_dims = 50, perplexity = 8, max_iter = 1000)
 tsneOut <- data.frame(tsneOut$Y, df)
 q <- ggplot(tsneOut, aes(X1, X2)) +
-  geom_point(size = 5, alpha = 0.5, aes(color = label)) +
-  geom_text(aes(label = type)) + 
+  geom_point(size = 5, alpha = 0.5, aes(shape = label, color = strain)) +
   theme_bw() +
   ggtitle("T-SNE Clustering HK genes (Before Batch Correction)") +
   theme_Publication2() + xlab("PC1") + ylab("PC2")
@@ -72,8 +72,7 @@ set.seed(42)
 tsneOut <- Rtsne(t(log2(expr.fpkm.corrected + 1)), initial_dims = 50, perplexity = 8, max_iter = 1000)
 tsneOut <- data.frame(tsneOut$Y, df)
 r <- ggplot(tsneOut, aes(X1, X2)) +
-  geom_point(size = 5, alpha = 0.5, aes(color = label)) +
-  geom_text(aes(label = type)) + 
+  geom_point(size = 5, alpha = 0.5, aes(shape = label, color = strain)) +
   theme_bw() +
   ggtitle("T-SNE Clustering (After Batch Correction)") +
   theme_Publication2() + xlab("PC1") + ylab("PC2")
@@ -82,8 +81,7 @@ expr.fpkm.corrected.hk <- expr.fpkm.corrected[rownames(expr.fpkm.corrected) %in%
 tsneOut <- Rtsne(t(log2(expr.fpkm.corrected.hk + 1)), initial_dims = 50, perplexity = 8, max_iter = 1000)
 tsneOut <- data.frame(tsneOut$Y, df)
 s <- ggplot(tsneOut, aes(X1, X2)) +
-  geom_point(size = 5, alpha = 0.5, aes(color = label)) +
-  geom_text(aes(label = type)) + 
+  geom_point(size = 5, alpha = 0.5, aes(shape = label, color = strain)) +
   theme_bw() +
   ggtitle("T-SNE Clustering HK genes (After Batch Correction)") +
   theme_Publication2() + xlab("PC1") + ylab("PC2")

@@ -1,5 +1,5 @@
 # Author: Komal S. Rathi
-# Function: Differential expression analysis
+# Function: Differential expression analysis (within strain comparison)
 # Date: 04/02/2020
 
 options(java.parameters = "- Xmx1024m")
@@ -16,8 +16,20 @@ option_list <- list(
               help = "Metadata file for samples (.tsv)"),
   make_option(c("--type"), type = "character",
               help = "Type of comparison"),
+  make_option(c("--col"), type = "character",
+              help = "column for comparison"),
+  make_option(c("--fc"), type = "character", default = 0,
+              help = "fold-change for output files"),
+  make_option(c("--plx"), type = "character", default = 0,
+              help = "perplexity for t-SNE"),
   make_option(c("--prefix"), type = "character",
               help = "Prefix for output files"),
+  make_option(c("--excel"), type = "character",
+              default = TRUE,
+              help = "Write to excel file?"),
+  make_option(c("--text"), type = "character",
+              default = TRUE,
+              help = "Write to txt file?"),
   make_option(c("--outdir"), type = "character",
               help = "Output directory path")
 )
@@ -27,26 +39,48 @@ opt <- parse_args(OptionParser(option_list = option_list))
 counts_matrix <- opt$counts_matrix
 meta_file <- opt$meta_file
 type <- opt$type
+col <- opt$col
+fc <- opt$fc
+plx <- opt$plx
 prefix <- opt$prefix
+excel <- opt$excel
+text <- opt$text
 outdir <- opt$outdir
 
+# source functions
 source('~/Projects/Utils/design_pairs.R')
 source('R/annotate_limma.R')
 source('R/PCA-plot.R')
 source('R/Volcano-plot.R')
 source('R/filterExpr.R')
 
+# read data
 load(counts_matrix)
 expr.counts.mat <- expr.counts[[1]]
 expr.counts.annot <- expr.counts[[2]]
 meta <- read.delim(meta_file, stringsAsFactors = F)
+type <- trimws(strsplit(type,",")[[1]]) 
+plx <- as.numeric(plx)
+fc <- as.numeric(fc)
+
+# make output directories
+pca.out <- file.path(outdir, 'pca')
+dir.create(pca.out, showWarnings = F, recursive = TRUE)
+tsne.out <- file.path(outdir, 'tsne')
+dir.create(tsne.out, showWarnings = F, recursive = TRUE)
+volcano.out <- file.path(outdir, 'volcano')
+dir.create(volcano.out, showWarnings = F, recursive = TRUE)
+summary.out <- file.path(outdir, 'summary')
+dir.create(summary.out, showWarnings = F, recursive = TRUE)
 
 # Analysis
-# 3. Within strain comparison: Exercised combined (responders + non-responders) vs Non-exercised
-# 4. Within strain comparison: Exercised (responders) vs Exercised (non-responders)
+# 1. Within strain comparison: Exercised combined (responders + non-responders) vs Non-exercised
+# 2. Within strain comparison: Exercised (responders) vs Exercised (non-responders)
 
 # generalized function
-diff.expr <- function(expr, meta, annot, st, type = "non_exercised", var = "label", batch.correct = NULL, fc = 0, fname = "plot_name", plx = 7, write_to_text = TRUE, write_to_excel = FALSE){
+diff.expr <- function(expr, meta, annot, st, type = "non_exercised", 
+                      var = "label", fc = 0, plx = 7, fname = "plot_name", 
+                      write_to_text = TRUE, write_to_excel = FALSE){
   
   print(paste0("Strain:", st))
   
@@ -86,24 +120,9 @@ diff.expr <- function(expr, meta, annot, st, type = "non_exercised", var = "labe
   v <- voom(counts = y, design = design, plot = FALSE)
   voomData <- v$E
   
-  # batch correction
-  if(!is.null(batch.correct)){
-    batch <- factor(exercised[,batch.correct])
-    voomData <- ComBat(voomData, batch = batch, mod = design, par.prior = T)
-  }
-  
   # tsne and pca plot of voom normalized data
-  pca.out <- file.path(outdir, 'pca')
-  if(!dir.exists(pca.out)){
-    system(paste0('mkdir -p ', pca.out))
-  }
   pca.fname <- paste0(st,'-',fname, '.pdf')
   pca.plot(voomData = voomData, meta = meta, fname = file.path(pca.out, pca.fname))
-  
-  tsne.out <- file.path(outdir, 'tsne')
-  if(!dir.exists(tsne.out)){
-    system(paste0('mkdir -p ', tsne.out))
-  }
   tsne.plot(voomData = voomData, meta = meta, fname = file.path(tsne.out, pca.fname), plx = plx)
   
   # all levels of design
@@ -123,11 +142,7 @@ diff.expr <- function(expr, meta, annot, st, type = "non_exercised", var = "labe
     outputLimma <- topTable(fit2, coef = i, number = Inf)
     
     # plot volcano
-    volcano.out <- file.path(outdir, 'volcano')
     volc.fname <- paste0(st,'-',fname, '-volcano.pdf')
-    if(!dir.exists(volcano.out)){
-      system(paste0('mkdir -p ', volcano.out))
-    }
     plotVolcano(result = outputLimma, fname = file.path(volcano.out, volc.fname), yaxis = "P.Value", lfcutoff = 0, pvalcutoff = 0.05)
     
     if(nrow(outputLimma) > 0){
@@ -144,13 +159,11 @@ diff.expr <- function(expr, meta, annot, st, type = "non_exercised", var = "labe
     }
     # newList[[i]] <- assign(comp, outputLimma)
   }
-  
-  strain  <- gsub(' ','_',st)
-  summary.out <- file.path(outdir, 'summary')
-  system(paste0('mkdir -p ', summary.out))
-  
+
   # write to excel file
+  strain  <- gsub(' ','_',st)
   if(write_to_excel == TRUE){
+    print("Writing output to excel...")
     xls.fname <- file.path(summary.out, paste0(fname, '.xlsx'))
     write.xlsx(x = outputLimma, file = xls.fname, row.names = FALSE, sheetName = strain, append=T)
     gc()
@@ -158,6 +171,7 @@ diff.expr <- function(expr, meta, annot, st, type = "non_exercised", var = "labe
   
   # write to text file
   if(write_to_text == TRUE){
+    print("Writing output to text...")
     txt.fname <- file.path(summary.out, paste0(fname, '-', strain, '.txt'))
     if(nrow(outputLimma) > 1){
       tmp <- outputLimma %>%
@@ -173,15 +187,8 @@ diff.expr <- function(expr, meta, annot, st, type = "non_exercised", var = "labe
 strains <- unique(meta$strain)
 for(i in 1:length(strains)){
   st <- strains[i]
-  diff.expr(expr = expr.counts.mat,
-            meta = meta, 
-            st = st,
-            annot = expr.counts.annot,
-            var = "label",
-            type = type, 
-            fname = prefix, 
-            plx = 3,
-            write_to_excel = TRUE, 
-            write_to_text = TRUE)
-  
+  diff.expr(expr = expr.counts.mat, meta = meta, annot = expr.counts.annot,
+            st = st, 
+            type = type, var = col, fc = fc, plx = plx,
+            fname = prefix, write_to_excel = excel, write_to_text = text)
 }
