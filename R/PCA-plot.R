@@ -8,7 +8,7 @@ source('../Utils/pubTheme.R')
 library(Rtsne)
 library(ggpubr)
 
-tsne.plot <- function(voomData, meta, fname, plx){
+tsne.plot <- function(voomData, meta, fname, plx, color_var, shape_var){
   
   # subset voom normalized data using meta file
   rownames(meta) <- meta$sample
@@ -26,7 +26,7 @@ tsne.plot <- function(voomData, meta, fname, plx){
   tsneOut <- Rtsne(t(voomData), initial_dims = 50, perplexity = plx, max_iter = 1000)
   tsneOut <- data.frame(tsneOut$Y, meta)
   p <- ggplot(tsneOut, aes(X1, X2)) +
-    geom_point(size = 5, alpha = 0.5, aes(color = strain, shape = label)) +
+    geom_point(size = 5, alpha = 0.5, aes_string(color = color_var, shape = shape_var)) +
     geom_text(aes(label = sample), size = 2) + 
     theme_bw() +
     ggtitle("T-SNE Clustering (Voom normalized data)") +
@@ -34,7 +34,7 @@ tsne.plot <- function(voomData, meta, fname, plx){
   ggsave(filename = fname, plot = p, device = "pdf", width = 7, height = 5)
 }
 
-pca.plot <- function(voomData, meta, fname){
+pca.plot <- function(voomData, meta, fname, color_var, shape_var){
   
   # subset voom normalized data using meta file
   rownames(meta) <- meta$sample
@@ -54,13 +54,13 @@ pca.plot <- function(voomData, meta, fname){
   pca.data <- data.frame(pca.data, meta)
   pdf(file = fname, width = 10, height = 5, onefile = FALSE)
   p <- ggplot(pca.data, aes(PC1, PC2)) +
-    geom_point(size = 5, alpha = 0.5, aes(color = strain, shape = label)) +
+    geom_point(size = 5, alpha = 0.5, aes_string(color = color_var, shape = shape_var)) +
     geom_text(aes(label = sample), size = 2) + 
     theme_bw() +
     ggtitle("PCA Clustering (Voom normalized data)") +
     theme_Publication2()  
   q <- ggplot(pca.data, aes(PC3, PC4)) +
-    geom_point(size = 5, alpha = 0.5, aes(color = strain, shape = label)) +
+    geom_point(size = 5, alpha = 0.5, aes_string(color = color_var, shape = shape_var)) +
     geom_text(aes(label = sample), size = 2) + 
     theme_bw() +
     ggtitle("PCA Clustering (Voom normalized data)") +

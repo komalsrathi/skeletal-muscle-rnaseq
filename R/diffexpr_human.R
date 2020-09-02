@@ -2,7 +2,6 @@
 # Differential expression (Human)
 # Date: 09/02/2020
 
-
 options(java.parameters = "- Xmx1024m")
 library(optparse)
 library(tidyverse)
@@ -76,7 +75,7 @@ summary.out <- file.path(outdir, 'summary')
 dir.create(summary.out, showWarnings = F, recursive = TRUE)
 
 # Analysis:
-# 1. All strains together: Exercised (responders) vs Exercised (non-responders)
+# 1. All comparisons between cell lines
 
 # generalized function
 diff.expr <- function(expr, meta, annot, type = c("exercised_responders","exercised_non_responders"), 
@@ -118,8 +117,8 @@ diff.expr <- function(expr, meta, annot, type = c("exercised_responders","exerci
   
   # tsne and pca plot of voom normalized data
   pca.fname <- paste0(fname, '.pdf')
-  pca.plot(voomData = voomData, meta = meta, fname = file.path(pca.out, pca.fname))
-  tsne.plot(voomData = voomData, meta = meta, fname = file.path(tsne.out, pca.fname), plx = plx)
+  pca.plot(voomData = voomData, meta = meta, fname = file.path(pca.out, pca.fname), color_var = 'label', shape_var = 'label')
+  tsne.plot(voomData = voomData, meta = meta, fname = file.path(tsne.out, pca.fname), plx = plx, color_var = 'label', shape_var = 'label')
   
   # all levels of design
   all.pairs <- design.pairs(levels = colnames(design))
@@ -161,7 +160,7 @@ diff.expr <- function(expr, meta, annot, type = c("exercised_responders","exerci
     xls.fname <- file.path(summary.out, paste0(fname,'.xlsx'))
     for (i in 1:length(newList)){
       if(nrow(newList[[i]]) > 1){
-        write.xlsx(x = newList[[i]], file = xls.fname, row.names = FALSE, sheetName = "all_strains", append=T)
+        write.xlsx(x = newList[[i]], file = xls.fname, row.names = FALSE, sheetName = "all_comparisons", append=T)
         gc()
       }
     }
@@ -183,7 +182,7 @@ diff.expr <- function(expr, meta, annot, type = c("exercised_responders","exerci
   }
 }
 
-# all strains together: Exercised (responders) vs Exercised (non-responders)
+# call function
 diff.expr(expr = expr.counts.mat, meta = meta, annot = expr.counts.annot, 
           type = type, var = col, fc = fc, plx = plx, 
           fname = prefix, write_to_excel = excel, write_to_text = text)
