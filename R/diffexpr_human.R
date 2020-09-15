@@ -8,11 +8,14 @@ library(tidyverse)
 library(limma)
 library(edgeR)
 library(sva)
+library(readxl)
 library(xlsx)
 
 option_list <- list(
   make_option(c("--counts_matrix"), type = "character",
               help = "RData object of counts"),
+  make_option(c("--fpkm_matrix"), type = "character",
+              help = "RData object of fpkm"),
   make_option(c("--meta_file"), type = "character",
               help = "Metadata file for samples (.tsv)"),
   make_option(c("--var_filter"), type = "character", default = TRUE,
@@ -40,6 +43,7 @@ option_list <- list(
 # parse parameters
 opt <- parse_args(OptionParser(option_list = option_list))
 counts_matrix <- opt$counts_matrix
+fpkm_matrix <- opt$fpkm_matrix
 meta_file <- opt$meta_file
 var_filter <- opt$var_filter
 type <- opt$type
@@ -57,11 +61,14 @@ source('R/annotate_limma.R')
 source('R/PCA-plot.R')
 source('R/Volcano-plot.R')
 source('R/filterExpr.R')
+source('R/add_fpkm_expression.R')
 
 # read data
 load(counts_matrix)
+load(fpkm_matrix)
 expr.counts.mat <- expr.counts[[1]]
 expr.counts.annot <- expr.counts[[2]]
+expr.fpkm <- expr.fpkm[[1]]
 meta <- read.delim(meta_file, stringsAsFactors = F)
 type <- trimws(strsplit(type,",")[[1]]) 
 plx <- as.numeric(plx)
@@ -81,7 +88,7 @@ dir.create(summary.out, showWarnings = F, recursive = TRUE)
 # 1. All comparisons between cell lines
 
 # generalized function
-diff.expr <- function(expr, meta, annot, type = NULL, var = var, fc = 0, plx = 7, 
+diff.expr <- function(expr, expr.fpkm, meta, annot, type = NULL, var = var, fc = 0, plx = 7, 
                       fname = "plot_name", var_filter = TRUE,
                       write_to_excel = TRUE,  write_to_text = TRUE){
   
@@ -107,6 +114,9 @@ diff.expr <- function(expr, meta, annot, type = NULL, var = var, fc = 0, plx = 7
   } else {
     break
   }
+  
+  # subset fpkm to count matrix samples
+  expr.fpkm <- expr.fpkm[,colnames(expr)]
   
   # create design
   var <- factor(meta[,var])
@@ -153,6 +163,10 @@ diff.expr <- function(expr, meta, annot, type = NULL, var = var, fc = 0, plx = 7
       
       # annotate and filter output
       outputLimma <- annotate.limma(x = outputLimma, foldchange = fc, annot)
+      
+      # add fpkm output
+      outputLimma <- add.fpkm(x = outputLimma, fpkm_mat = expr.fpkm)
+
       print(paste0("Output dimensions:", dim(outputLimma)))
     } else {
       print("No significant difference")
@@ -189,6 +203,7 @@ diff.expr <- function(expr, meta, annot, type = NULL, var = var, fc = 0, plx = 7
 }
 
 # call function
-diff.expr(expr = expr.counts.mat, meta = meta, annot = expr.counts.annot, 
+diff.expr(expr = expr.counts.mat, expr.fpkm = expr.fpkm, 
+          meta = meta, annot = expr.counts.annot, 
           type = type, var = col, fc = fc, plx = plx, var_filter = var_filter,
           fname = prefix, write_to_excel = excel, write_to_text = text)
