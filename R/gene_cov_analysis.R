@@ -1,5 +1,6 @@
 # Author: Komal S. Rathi
 # Function: Gene expression correlation with covariates analysis
+# For later
 
 library(usedist)
 library(edgeR)
@@ -9,55 +10,62 @@ library(reshape2)
 library(bioplotr)
 library(broom)
 library(ggpubr)
+library(optparse)
 
 source('R/filterExpr.R')
 source('../Utils/pubTheme.R')
 
-load('data/collapsed_counts_matrix.RData')
+option_list <- list(
+  make_option(c("--counts_matrix"), type = "character",
+              help = "RData object of counts"),
+  make_option(c("--meta_file"), type = "character",
+              help = "Metadata file for samples (.txt)"),
+  make_option(c("--covariate_file"), type = "character",
+              help = "file with covariate data (.txt)"),
+  make_option(c("--var_filter"), type = "character", default = TRUE,
+              help = "Variance filter: T or F"),
+  make_option(c("--col"), type = "character",
+              help = "column for comparison"),
+  make_option(c("--outdir"), type = "character",
+              help = "Output directory path")
+)
+
+# parse parameters
+opt <- parse_args(OptionParser(option_list = option_list))
+counts_matrix <- opt$counts_matrix
+meta_file <- opt$meta_file
+covariate_file <- opt$covariate_file
+var_filter <- opt$var_filter
+col <- opt$col
+outdir <- opt$outdir
+
+# read data
+load(counts_matrix)
 expr.counts.mat <- expr.counts[[1]]
 expr.counts.annot <- expr.counts[[2]]
-meta <- read.delim('data/meta-data-withlitter.txt', stringsAsFactors = F)
-meta$label <- gsub('-','_',meta$label)
-meta$litter[meta$litter == ""] <- "U"
+meta <- read.delim(meta_file, stringsAsFactors = F)
 rownames(meta) <- meta$sample
-meta$label2 <- ifelse(meta$label == "non_exercised", meta$label, "exercised")
+meta$label <- ifelse(meta$label == "non_exercised", meta$label, "exercised")
 expr.counts.mat <- expr.counts.mat[,rownames(meta)]
 
-# filter expression
-expr.counts.mat <- filterExpr(expr.counts.mat)
-
-# create design
-var <- factor(meta[,'strain'])
-design <- model.matrix(~0+var)
-colnames(design) <- levels(var)
-rownames(design) <- meta$sample
-
-# voom normalize data
-y <- DGEList(counts = as.matrix(expr.counts.mat), genes = rownames(expr.counts.mat))
-y <- calcNormFactors(y)
-v <- voom(counts = y, design = design, plot = FALSE)
-voomData <- v$E
-
 # covariates
-covariates <- read.xlsx('data/Covariable list Patrick Schaefer - RNASeq soleus.xls', sheetIndex = 3)
+covariates <- read.delim(covariate_file)
 covariates <-  covariates %>%
   column_to_rownames("mice")
 covariates <- covariates[rownames(meta),]
 
 # merge covariates to metadata
 if(identical(rownames(covariates), rownames(meta))){
+  print("identical")
   meta <- cbind(meta, covariates)
 }
-
-# transpose matrix
-voomData.trn <- melt(as.matrix(voomData), varnames = c("gene","sample"), value.name = "expr")
 
 # function
 reg.analysis <- function(x, df){
   x <- x %>%
     inner_join(df %>% rownames_to_column("sample"), by = 'sample')
-  covar <- colnames(x)[4]
-  colnames(x)[4] <- 'covar'
+  covar <- colnames(x)[ncol(x)]
+  colnames(x)[ncol(x)] <- 'covar'
   
   # fit model
   fit <- lm(expr ~ covar, data = x)
@@ -76,51 +84,48 @@ reg.analysis <- function(x, df){
   return(res)
 }
 
-# correlation with gene exp (overall)
-covars <- colnames(meta[,6:ncol(meta)])
-for(i in 1:length(covars)){
-  covar <- covars[i]
-  print(covar)
-  df <- meta %>%
-    dplyr::select(covar)
-  res <- plyr::ddply(voomData.trn, .variables = 'gene', .fun = function(x) reg.analysis(x, df))
+covar_analysis <- function(expr, var = col, var_filter = TRUE, covariates, outdir){
   
-  # adjust pvalues for each
-  res <- res %>%
-    mutate(fdr = p.adjust(p.value, method = "fdr")) %>%
-    mutate(correlated = ifelse(fdr < 0.05, TRUE, FALSE)) %>%
-    arrange(fdr) 
+  # create output directories
+  dir.create(file.path(outdir, 'plots'), showWarnings = F, recursive = T)
   
-  # write out files
-  fname <- paste0('results/covars/',covar,'_model_output.xlsx')
-  write.xlsx(x = res, file = fname, row.names = FALSE)
-}
-
-# repeat this for each strain
-strains <- unique(meta$strain)
-for(j in 1:length(strains)){
-  print(strains[j])
-  st <- gsub(' ','_',strains[j])
-  subset.meta <- meta %>%
-    mutate(tmp = sample) %>%
-    filter(strain == strains[j]) %>%
-    column_to_rownames('tmp')
+  # filter expression
+  print(var_filter)
+  expr <- filterExpr(expr, var.filter = var_filter)
   
-  subset.trn <- voomData.trn %>%
-    filter(sample %in% subset.meta$sample)
+  # create design
+  print('create design')
+  var <- factor(meta[,var])
+  design <- model.matrix(~0+var)
+  colnames(design) <- levels(var)
+  rownames(design) <- meta$sample
+  print(dim(design))
   
-  covars <- colnames(subset.meta[,6:ncol(subset.meta)])
+  # voom normalize data
+  print('voom normalization')
+  y <- DGEList(counts = as.matrix(expr), genes = rownames(expr))
+  y <- calcNormFactors(y)
+  v <- voom(counts = y, design = design, plot = FALSE)
+  voomData <- v$E
+  
+  # transpose matrix
+  print('transpose')
+  voomData.trn <- melt(as.matrix(voomData), varnames = c("gene","sample"), value.name = "expr")
+  
+  # correlation with gene exp (overall)
+  print("Step 1...")
+  batch.col <- grep('batch', colnames(meta))
+  n <- batch.col + 1
+  print(n)
+  covars <- colnames(meta[,n:ncol(meta)])
   for(i in 1:length(covars)){
     covar <- covars[i]
-    print(covar)
-    fname <- paste0('results/covars/',st,'_',covar,'_model_output.xlsx')
+    fname <- file.path(outdir, paste0(covar, '_model_output.xlsx'))
     if(!file.exists(fname)){
-      df <- subset.meta %>%
+      print(covar)
+      df <- meta %>%
         dplyr::select(covar)
-      if(all(is.na(df[,covar]))){
-        next
-      }
-      res <- plyr::ddply(subset.trn, .variables = 'gene', .fun = function(x) reg.analysis(x, df))
+      res <- plyr::ddply(voomData.trn, .variables = 'gene', .fun = function(x) reg.analysis(x, df))
       
       # adjust pvalues for each
       res <- res %>%
@@ -130,52 +135,100 @@ for(j in 1:length(strains)){
       
       # write out files
       write.xlsx(x = res, file = fname, row.names = FALSE)
+    } else {
+      print(fname)
+      print("file exists")
     }
   }
-}
-
-# boxplots of covariates
-for(i in 6:ncol(meta)){
-  forbox <- meta
-  ylab <- colnames(forbox)[i]
-  colnames(forbox)[i]  <- 'covariate'
-  fname <- paste0('results/covars/plots/',ylab,'.png')
-  my_comparisons <- list(c("ANT1 ME", "IAI ME"), 
-                         c("ANT1 ME", "B6 ME"), 
-                         c("ANT1 ME", "EC77 ME"),
-                         c("IAI ME", "B6 ME"),
-                         c("IAI ME", "EC77 ME"),
-                         c("B6 ME", "EC77 ME"))
-  p <- ggboxplot(
-    forbox, x = "strain", y = "covariate", 
-    facet.by = "label2", fill = "label2", ylab = ylab) + 
-    stat_compare_means(
-      comparisons = my_comparisons, 
-      label = "p.signif"
-    )
   
-  ggsave(filename = fname, plot = p, device = 'png', width = 10, height = 8)
+  # repeat this for each strain
+  print("Step 2...")
+  strains <- unique(meta$strain)
+  for(j in 1:length(strains)){
+    print(strains[j])
+    st <- gsub(' ','_',strains[j])
+    subset.meta <- meta %>%
+      mutate(tmp = sample) %>%
+      filter(strain == strains[j]) %>%
+      column_to_rownames('tmp')
+    
+    subset.trn <- voomData.trn %>%
+      filter(sample %in% subset.meta$sample)
+    
+    covars <- colnames(subset.meta[,n:ncol(subset.meta)])
+    for(i in 1:length(covars)){
+      covar <- covars[i]
+      print(covar)
+      fname <- file.path(outdir, paste0(st, '_', covar, '_model_output.xlsx'))
+      if(!file.exists(fname)){
+        df <- subset.meta %>%
+          dplyr::select(covar)
+        if(all(is.na(df[,covar]))){
+          next
+        }
+        res <- plyr::ddply(subset.trn, .variables = 'gene', .fun = function(x) reg.analysis(x, df))
+        
+        # adjust pvalues for each
+        res <- res %>%
+          mutate(fdr = p.adjust(p.value, method = "fdr")) %>%
+          mutate(correlated = ifelse(fdr < 0.05, TRUE, FALSE)) %>%
+          arrange(fdr) 
+        
+        # write out files
+        write.xlsx(x = res, file = fname, row.names = FALSE)
+      } else {
+        print(fname)
+        print("file exists")
+      }
+    }
+  }
+  
+  # find for each variable if there is an association with strain
+  print("Step 3...")
+  for(i in n:ncol(meta)){
+    tmp <- meta
+    covar <- colnames(tmp)[i]
+    colnames(tmp)[i]  <- 'covariate'
+    fit1 <- lm(covariate ~ label, data = tmp)
+    group.rSquared <- format(summary(fit1)$r.squared, digits = 2, scientific = T)
+    group.pVal <- format(anova(fit1)$'Pr(>F)'[1], digits = 2, scientific = T)
+    if(length(which(!is.na(tmp$covariate))) < 40){
+      next
+    }
+    fit2 <- lm(covariate ~ strain, data = tmp)
+    strain.rSquared <- format(summary(fit2)$r.squared, digits = 2, scientific = T)
+    strain.pVal <- format(anova(fit2)$'Pr(>F)'[1], digits = 2, scientific = T)
+    if(i == n){
+      res <- data.frame(covar, group.rSquared, group.pVal, strain.rSquared, strain.pVal)
+    } else {
+      tt <- data.frame(covar, group.rSquared, group.pVal, strain.rSquared, strain.pVal)
+      res <- rbind(res, tt)
+    }
+  }
+  write.xlsx(res, file = file.path(outdir, paste0('covar_association_withStrain.xlsx')), row.names = FALSE)
+  
+  # boxplots of covariates
+  print("Step 4...")
+  for(i in n:ncol(meta)){
+    forbox <- meta
+    ylab <- colnames(forbox)[i]
+    colnames(forbox)[i]  <- 'covariate'
+    fname <- file.path(outdir, 'plots', paste0(ylab, '.png'))
+    p <- ggboxplot(
+      forbox, x = "strain", y = "covariate", 
+      facet.by = "label", fill = "label", ylab = ylab) + 
+      stat_compare_means(ref.group = ".all.", label = "p.signif")
+    ggsave(filename = fname, plot = p, device = 'png', width = 10, height = 8)
+  }
 }
 
-# find for each variable if there is an association with strain
-for(i in 6:ncol(meta)){
-  tmp <- meta
-  covar <- colnames(tmp)[i]
-  colnames(tmp)[i]  <- 'covariate'
-  fit1 <- lm(covariate ~ label2, data = tmp)
-  group.rSquared <- format(summary(fit1)$r.squared, digits = 2, scientific = T)
-  group.pVal <- format(anova(fit1)$'Pr(>F)'[1], digits = 2, scientific = T)
-  if(length(which(!is.na(tmp$covariate))) < 40){
-    next
-  }
-  fit2 <- lm(covariate ~ strain, data = tmp)
-  strain.rSquared <- format(summary(fit2)$r.squared, digits = 2, scientific = T)
-  strain.pVal <- format(anova(fit2)$'Pr(>F)'[1], digits = 2, scientific = T)
-  if(i == 6){
-    res <- data.frame(covar, group.rSquared, group.pVal, strain.rSquared, strain.pVal)
-  } else {
-    tt <- data.frame(covar, group.rSquared, group.pVal, strain.rSquared, strain.pVal)
-    res <- rbind(res, tt)
-  }
-}
-write.xlsx(res, file = 'results/covars/covar_association_withStrain.xlsx', row.names = FALSE)
+# run function
+covar_analysis(expr = expr.counts.mat, 
+               var = col, var_filter = var_filter, 
+               covariates = covariates, outdir = outdir)
+
+
+
+
+
+

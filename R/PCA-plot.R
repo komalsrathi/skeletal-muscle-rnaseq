@@ -8,7 +8,7 @@ source('../Utils/pubTheme.R')
 library(Rtsne)
 library(ggpubr)
 
-tsne.plot <- function(voomData, meta, fname, plx, color_var, shape_var){
+tsne.plot <- function(voomData, gene_list = NULL, meta, fname, plx, color_var, shape_var){
   
   # subset voom normalized data using meta file
   rownames(meta) <- meta$sample
@@ -31,10 +31,27 @@ tsne.plot <- function(voomData, meta, fname, plx, color_var, shape_var){
     theme_bw() +
     ggtitle("T-SNE Clustering (Voom normalized data)") +
     theme_Publication2() + xlab("PC1") + ylab("PC2") 
-  ggsave(filename = fname, plot = p, device = "pdf", width = 7, height = 5)
+
+  pdf(file = fname, width = 12, height = 5, onefile = F)
+  # if gene_list is present use that as well
+  if(!is.null(gene_list)){
+    voomData <- voomData[which(rownames(voomData) %in% gene_list),]
+    tsneOut <- Rtsne(t(voomData), initial_dims = 50, perplexity = plx, max_iter = 1000)
+    tsneOut <- data.frame(tsneOut$Y, meta)
+    q <- ggplot(tsneOut, aes(X1, X2)) +
+      geom_point(size = 5, alpha = 0.5, aes_string(color = color_var, shape = shape_var)) +
+      geom_text(aes(label = sample), size = 2) + 
+      theme_bw() +
+      ggtitle("T-SNE Clustering (Voom normalized data: HK genes)") +
+      theme_Publication2() + xlab("PC1") + ylab("PC2")
+    print(ggarrange(p, q, common.legend = T))
+  } else {
+    print(p)
+  }
+  dev.off()
 }
 
-pca.plot <- function(voomData, meta, fname, color_var, shape_var){
+pca.plot <- function(voomData, gene_list = NULL, meta, fname, color_var, shape_var){
   
   # subset voom normalized data using meta file
   rownames(meta) <- meta$sample
@@ -47,12 +64,12 @@ pca.plot <- function(voomData, meta, fname, color_var, shape_var){
     break
   }
   
-  # t-SNE before combat adjustment
+  # pca
   prData <- prcomp(voomData)
   pca.data <- prData$rotation
   pca.data <- data.frame(pca.data)[1:4]
   pca.data <- data.frame(pca.data, meta)
-  pdf(file = fname, width = 10, height = 5, onefile = FALSE)
+  pdf(file = fname, width = 12, height = 8, onefile = F)
   p <- ggplot(pca.data, aes(PC1, PC2)) +
     geom_point(size = 5, alpha = 0.5, aes_string(color = color_var, shape = shape_var)) +
     geom_text(aes(label = sample), size = 2) + 
@@ -65,6 +82,29 @@ pca.plot <- function(voomData, meta, fname, color_var, shape_var){
     theme_bw() +
     ggtitle("PCA Clustering (Voom normalized data)") +
     theme_Publication2() 
-  print(ggarrange(p, q, common.legend = T))
+  
+  # if gene_list is present use that as well
+  if(!is.null(gene_list)){
+    voomData <- voomData[which(rownames(voomData) %in% gene_list),]
+    prData <- prcomp(voomData)
+    pca.data <- prData$rotation
+    pca.data <- data.frame(pca.data)[1:4]
+    pca.data <- data.frame(pca.data, meta)
+    r <- ggplot(pca.data, aes(PC1, PC2)) +
+      geom_point(size = 5, alpha = 0.5, aes_string(color = color_var, shape = shape_var)) +
+      geom_text(aes(label = sample), size = 2) + 
+      theme_bw() +
+      ggtitle("PCA Clustering (Voom normalized data: HK genes)") +
+      theme_Publication2()  
+    s <- ggplot(pca.data, aes(PC3, PC4)) +
+      geom_point(size = 5, alpha = 0.5, aes_string(color = color_var, shape = shape_var)) +
+      geom_text(aes(label = sample), size = 2) + 
+      theme_bw() +
+      ggtitle("PCA Clustering (Voom normalized data: HK genes)") +
+      theme_Publication2() 
+    print(ggarrange(p, q, r, s, ncol = 2, nrow = 2, common.legend = T))
+  } else {
+    print(ggarrange(p, q, common.legend = T))
+  }
   dev.off()
 }

@@ -18,6 +18,8 @@ option_list <- list(
               help = "RData object of fpkm"),
   make_option(c("--meta_file"), type = "character",
               help = "Metadata file for samples (.tsv)"),
+  make_option(c("--gene_list"), type = "character",
+              help = "House keeping gene list for tSNE/PCA plots"),
   make_option(c("--var_filter"), type = "character", default = TRUE,
               help = "Variance filter: T or F"),
   make_option(c("--type"), type = "character",
@@ -45,6 +47,7 @@ opt <- parse_args(OptionParser(option_list = option_list))
 counts_matrix <- opt$counts_matrix
 fpkm_matrix <- opt$fpkm_matrix
 meta_file <- opt$meta_file
+gene_list <- opt$gene_list
 var_filter <- opt$var_filter
 type <- opt$type
 col <- opt$col
@@ -70,6 +73,7 @@ expr.counts.mat <- expr.counts[[1]]
 expr.counts.annot <- expr.counts[[2]]
 expr.fpkm <- expr.fpkm[[1]]
 meta <- read.delim(meta_file, stringsAsFactors = F)
+gene_list <- read.delim(gene_list,  stringsAsFactors = F)
 type <- trimws(strsplit(type,",")[[1]]) 
 plx <- as.numeric(plx)
 fc <- as.numeric(fc)
@@ -88,7 +92,9 @@ dir.create(summary.out, showWarnings = F, recursive = TRUE)
 # 1. All comparisons between cell lines
 
 # generalized function
-diff.expr <- function(expr, expr.fpkm, meta, annot, type = NULL, var = var, fc = 0, plx = 7, 
+diff.expr <- function(expr, expr.fpkm, meta, annot, type = NULL, 
+                      gene_list,
+                      var = var, fc = 0, plx = 7, 
                       fname = "plot_name", var_filter = TRUE,
                       write_to_excel = TRUE,  write_to_text = TRUE){
   
@@ -133,8 +139,8 @@ diff.expr <- function(expr, expr.fpkm, meta, annot, type = NULL, var = var, fc =
   
   # tsne and pca plot of voom normalized data
   pca.fname <- paste0(fname, '.pdf')
-  pca.plot(voomData = voomData, meta = meta, fname = file.path(pca.out, pca.fname), color_var = var, shape_var = var)
-  tsne.plot(voomData = voomData, meta = meta, fname = file.path(tsne.out, pca.fname), plx = plx, color_var = var, shape_var = var)
+  pca.plot(voomData = voomData, gene_list = gene_list, meta = meta, fname = file.path(pca.out, pca.fname), color_var = var, shape_var = var)
+  tsne.plot(voomData = voomData, gene_list = gene_list, meta = meta, fname = file.path(tsne.out, pca.fname), plx = plx, color_var = var, shape_var = var)
   
   # all levels of design
   all.pairs <- design.pairs(levels = colnames(design))
@@ -204,6 +210,7 @@ diff.expr <- function(expr, expr.fpkm, meta, annot, type = NULL, var = var, fc =
 
 # call function
 diff.expr(expr = expr.counts.mat, expr.fpkm = expr.fpkm, 
-          meta = meta, annot = expr.counts.annot, 
+          meta = meta, gene_list = gene_list$genes, 
+          annot = expr.counts.annot, 
           type = type, var = col, fc = fc, plx = plx, var_filter = var_filter,
           fname = prefix, write_to_excel = excel, write_to_text = text)

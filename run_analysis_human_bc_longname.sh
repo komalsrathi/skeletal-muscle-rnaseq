@@ -8,25 +8,25 @@ Rscript R/collapse_matrix.R \
 # Batch correct for two batches (count matrix)
 Rscript R/batch_correct.R \
 --combined_mat data/human/human_collapsed_counts_matrix.RData \
---combined_clin data/human/human-meta-data.txt \
---corrected_outfile human_collapsed_counts_matrix_batchcorrected.RData \
+--combined_clin data/human/human-meta-data-v2.txt \
+--corrected_outfile human_collapsed_counts_matrix_batchcorrected_longname.RData \
 --type counts \
 --outdir data/human
 
 # Batch correct for two batches (fpkm matrix)
 Rscript R/batch_correct.R \
 --combined_mat data/human/human_collapsed_fpkm_matrix.RData \
---combined_clin data/human/human-meta-data.txt \
---corrected_outfile human_collapsed_fpkm_matrix_batchcorrected.RData \
+--combined_clin data/human/human-meta-data-v2.txt \
+--corrected_outfile human_collapsed_fpkm_matrix_batchcorrected_longname.RData \
 --type fpkm \
 --outdir data/human
 
 ## Variance filter
 # 399_2 vs 370_1
 Rscript R/diffexpr_human.R \
---counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected.RData \
---fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected.RData \
---meta_file data/human/human-meta-data.txt \
+--counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected_longname.RData \
+--fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected_longname.RData \
+--meta_file data/human/human-meta-data-v2.txt \
 --gene_list data/gene-lists/housekeeping-genes-human.txt \
 --var_filter TRUE \
 --type '399_2, 370_1' \
@@ -36,13 +36,13 @@ Rscript R/diffexpr_human.R \
 --prefix 'diffexpr-399_2-vs-370_1' \
 --excel TRUE \
 --text TRUE \
---outdir results/human_bc/diffexpr-399_2-vs-370_1
+--outdir results/human_bc_longname/diffexpr-399_2-vs-370_1
 
 # 399_2 vs 370_5
 Rscript R/diffexpr_human.R \
---counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected.RData \
---fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected.RData \
---meta_file data/human/human-meta-data.txt \
+--counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected_longname.RData \
+--fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected_longname.RData \
+--meta_file data/human/human-meta-data-v2.txt \
 --gene_list data/gene-lists/housekeeping-genes-human.txt \
 --var_filter TRUE \
 --type '399_2, 370_5' \
@@ -52,13 +52,13 @@ Rscript R/diffexpr_human.R \
 --prefix 'diffexpr-399_2-vs-370_5' \
 --excel TRUE \
 --text TRUE \
---outdir results/human_bc/diffexpr-399_2-vs-370_5
+--outdir results/human_bc_longname/diffexpr-399_2-vs-370_5
 
 # 370_1 vs 370_5
 Rscript R/diffexpr_human.R \
---counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected.RData \
---fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected.RData \
---meta_file data/human/human-meta-data.txt \
+--counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected_longname.RData \
+--fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected_longname.RData \
+--meta_file data/human/human-meta-data-v2.txt \
 --gene_list data/gene-lists/housekeeping-genes-human.txt \
 --var_filter TRUE \
 --type '370_1, 370_5' \
@@ -68,14 +68,14 @@ Rscript R/diffexpr_human.R \
 --prefix 'diffexpr-370_1-vs-370_5' \
 --excel TRUE \
 --text TRUE \
---outdir results/human_bc/diffexpr-370_1-vs-370_5
+--outdir results/human_bc_longname/diffexpr-370_1-vs-370_5
 
 ## Remove filter by variance
 # 399_2 vs 370-1
 Rscript R/diffexpr_human.R \
---counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected.RData \
---fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected.RData \
---meta_file data/human/human-meta-data.txt \
+--counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected_longname.RData \
+--fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected_longname.RData \
+--meta_file data/human/human-meta-data-v2.txt \
 --gene_list data/gene-lists/housekeeping-genes-human.txt \
 --var_filter FALSE \
 --type '399_2, 370_1' \
@@ -85,13 +85,13 @@ Rscript R/diffexpr_human.R \
 --prefix 'diffexpr-399_2-vs-370_1' \
 --excel TRUE \
 --text TRUE \
---outdir results/human_bc/diffexpr-399_2-vs-370_1_novarfilter
+--outdir results/human_bc_longname/diffexpr-399_2-vs-370_1_novarfilter
 
 # 399_2 vs 370_5
 Rscript R/diffexpr_human.R \
---counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected.RData \
---fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected.RData \
---meta_file data/human/human-meta-data.txt \
+--counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected_longname.RData \
+--fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected_longname.RData \
+--meta_file data/human/human-meta-data-v2.txt \
 --gene_list data/gene-lists/housekeeping-genes-human.txt \
 --var_filter FALSE \
 --type '399_2, 370_5' \
@@ -101,13 +101,13 @@ Rscript R/diffexpr_human.R \
 --prefix 'diffexpr-399_2-vs-370_5' \
 --excel TRUE \
 --text TRUE \
---outdir results/human_bc/diffexpr-399_2-vs-370_5_novarfilter
+--outdir results/human_bc_longname/diffexpr-399_2-vs-370_5_novarfilter
 
 # 370_1 vs 370_5
 Rscript R/diffexpr_human.R \
---counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected.RData \
---fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected.RData \
---meta_file data/human/human-meta-data.txt \
+--counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected_longname.RData \
+--fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected_longname.RData \
+--meta_file data/human/human-meta-data-v2.txt \
 --gene_list data/gene-lists/housekeeping-genes-human.txt \
 --var_filter FALSE \
 --type '370_1, 370_5' \
@@ -117,13 +117,13 @@ Rscript R/diffexpr_human.R \
 --prefix 'diffexpr-370_1-vs-370_5' \
 --excel TRUE \
 --text TRUE \
---outdir results/human_bc/diffexpr-370_1-vs-370_5_novarfilter
+--outdir results/human_bc_longname/diffexpr-370_1-vs-370_5_novarfilter
 
 # remove variance filter and do one comparison tumor vs normals
 Rscript R/diffexpr_human.R \
---counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected.RData \
---fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected.RData \
---meta_file data/human/human-meta-data.txt \
+--counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected_longname.RData \
+--fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected_longname.RData \
+--meta_file data/human/human-meta-data-v2.txt \
 --gene_list data/gene-lists/housekeeping-genes-human.txt \
 --var_filter FALSE \
 --type 'Treat, Control' \
@@ -133,13 +133,13 @@ Rscript R/diffexpr_human.R \
 --prefix 'diffexpr_treat_vs_control' \
 --excel TRUE \
 --text TRUE \
---outdir results/human_bc/diffexpr_treat_vs_control_novarfilter
+--outdir results/human_bc_longname/diffexpr_treat_vs_control_novarfilter
 
 # with variance filter
 Rscript R/diffexpr_human.R \
---counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected.RData \
---fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected.RData \
---meta_file data/human/human-meta-data.txt \
+--counts_matrix data/human/human_collapsed_counts_matrix_batchcorrected_longname.RData \
+--fpkm_matrix data/human/human_collapsed_fpkm_matrix_batchcorrected_longname.RData \
+--meta_file data/human/human-meta-data-v2.txt \
 --gene_list data/gene-lists/housekeeping-genes-human.txt \
 --var_filter TRUE \
 --type 'Treat, Control' \
@@ -149,4 +149,4 @@ Rscript R/diffexpr_human.R \
 --prefix 'diffexpr_treat_vs_control' \
 --excel TRUE \
 --text TRUE \
---outdir results/human_bc/diffexpr_treat_vs_control
+--outdir results/human_bc_longname/diffexpr_treat_vs_control
