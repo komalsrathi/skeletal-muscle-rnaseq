@@ -10,6 +10,7 @@ library(edgeR)
 library(sva)
 library(readxl)
 library(xlsx)
+library(matrixStats)
 
 option_list <- list(
   make_option(c("--counts_matrix"), type = "character",
@@ -113,7 +114,7 @@ diff.expr <- function(expr, expr.fpkm, meta, annot, type = NULL,
   # keep.exprs <- filterByExpr(expr)
   # expr <- expr[keep.exprs,]
   print(var_filter)
-  expr <- filterExpr(expr.counts.mat = expr, var.filter = var_filter)
+  expr <- filterExpr(expr.counts.mat = expr, design = NULL, group = meta[,var], var.filter = var_filter)
   
   if(identical(rownames(meta), colnames(expr))) {
     print("Proceed")
@@ -132,15 +133,15 @@ diff.expr <- function(expr, expr.fpkm, meta, annot, type = NULL,
   print(dim(design))
   
   # voom normalize
-  y <- DGEList(counts = as.matrix(expr), genes = rownames(expr))
+  y <- DGEList(counts = as.matrix(expr))
   y <- calcNormFactors(y)
   v <- voom(counts = y, design = design, plot = FALSE)
   voomData <- v$E
   
   # tsne and pca plot of voom normalized data
   pca.fname <- paste0(fname, '.pdf')
-  pca.plot(voomData = voomData, gene_list = gene_list, meta = meta, fname = file.path(pca.out, pca.fname), color_var = var, shape_var = var)
-  tsne.plot(voomData = voomData, gene_list = gene_list, meta = meta, fname = file.path(tsne.out, pca.fname), plx = plx, color_var = var, shape_var = var)
+  pca.plot(voomData = voomData, topVar = 500, meta = meta, fname = file.path(pca.out, pca.fname), color_var = 'label', shape_var = 'treat')
+  tsne.plot(voomData = voomData, topVar = 500, meta = meta, fname = file.path(tsne.out, pca.fname), plx = plx, color_var = 'label', shape_var = 'treat')
   
   # all levels of design
   all.pairs <- design.pairs(levels = colnames(design))

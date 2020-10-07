@@ -42,10 +42,6 @@ combined_clin <- combined_clin %>%
   mutate(tmp = sample) %>%
   column_to_rownames('tmp')
 
-# batch is library + study combined 
-mod = model.matrix(~as.factor(batch), data = combined_clin) 
-mod0 = model.matrix(~1, data = combined_clin)
-
 # arrange sample identifiers using metadata
 combined_mat <- combined_mat[,rownames(combined_clin)]
 
@@ -57,8 +53,18 @@ if(identical(rownames(combined_clin), colnames(combined_mat))){
 }
 
 # batch correct using ComBat (log2(counts + 1))
-corrected_mat <- ComBat(dat = log2(combined_mat + 1), batch = combined_clin$batch)
-corrected_mat <- 2^(corrected_mat) # back-transform
+# corrected_mat <- ComBat(dat = log2(combined_mat + 1), batch = combined_clin$batch)
+# corrected_mat <- 2^(corrected_mat) # back-transform
+
+# batch correct using combat_seq
+batch <- combined_clin$batch
+cov1 <- as.numeric(factor(combined_clin$treat))
+cov2 <- as.numeric(factor(combined_clin$label))
+covar_mat <- cbind(cov1, cov2)
+corrected_mat <- ComBat_seq(counts = as.matrix(combined_mat), 
+                           batch = batch, 
+                           group = NULL, 
+                           covar_mod = covar_mat)
 
 # save corrected mat and annotation
 if(type == "counts"){

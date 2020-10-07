@@ -4,11 +4,17 @@
 library(genefilter)
 library(edgeR)
 
-filterExpr <- function(expr.counts.mat, var.filter) {
+filterExpr <- function(expr.counts.mat, group = NULL, design = NULL, var.filter) {
   
   # 1. filter by expression
   print('Filtering by expression...')
-  keep.exprs <- filterByExpr(expr.counts.mat, min.count = 10)
+  if(!is.null(group)){
+    keep.exprs <- filterByExpr(y = expr.counts.mat, group = group, min.count = 10)
+  } else if(!is.null(design)) {
+    keep.exprs <- filterByExpr(y = expr.counts.mat, design = design, min.count = 10)
+  } else {
+    keep.exprs <- filterByExpr(y = expr.counts.mat, min.count = 10)
+  }
   expr.counts.mat <- expr.counts.mat[keep.exprs,]
   print(dim(expr.counts.mat))
   
