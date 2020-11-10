@@ -6,7 +6,7 @@ Rscript R/gene_cov_analysis.R \
 --covariate_file data/mouse_skm/skm_covariable_list.txt \
 --var_filter TRUE \
 --col 'label' \
---outdir skeletal_muscle/covars
+--outdir results/skeletal_muscle/covars
 
 # mouse skm corrected
 # echo "Mouse SKM corrected"
