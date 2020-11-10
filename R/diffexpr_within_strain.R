@@ -12,8 +12,14 @@ library(optparse)
 option_list <- list(
   make_option(c("--counts_matrix"), type = "character",
               help = "RData object of counts"),
+  make_option(c("--fpkm_matrix"), type = "character",
+              help = "RData object of fpkm"),
   make_option(c("--meta_file"), type = "character",
               help = "Metadata file for samples (.tsv)"),
+  make_option(c("--gene_list"), type = "character",
+              help = "House keeping gene list for tSNE/PCA plots"),
+  make_option(c("--var_filter"), type = "character", default = TRUE,
+              help = "Variance filter: T or F"),
   make_option(c("--type"), type = "character",
               help = "Type of comparison"),
   make_option(c("--col"), type = "character",
@@ -37,7 +43,10 @@ option_list <- list(
 # parse parameters
 opt <- parse_args(OptionParser(option_list = option_list))
 counts_matrix <- opt$counts_matrix
+fpkm_matrix <- opt$fpkm_matrix
 meta_file <- opt$meta_file
+gene_list <- opt$gene_list
+var_filter <- opt$var_filter
 type <- opt$type
 col <- opt$col
 fc <- opt$fc
@@ -56,9 +65,12 @@ source('R/filterExpr.R')
 
 # read data
 load(counts_matrix)
+load(fpkm_matrix)
 expr.counts.mat <- expr.counts[[1]]
 expr.counts.annot <- expr.counts[[2]]
+expr.fpkm <- expr.fpkm[[1]]
 meta <- read.delim(meta_file, stringsAsFactors = F)
+gene_list <- read.delim(gene_list,  stringsAsFactors = F)
 type <- trimws(strsplit(type,",")[[1]]) 
 plx <- as.numeric(plx)
 fc <- as.numeric(fc)
@@ -78,9 +90,10 @@ dir.create(summary.out, showWarnings = F, recursive = TRUE)
 # 2. Within strain comparison: Exercised (responders) vs Exercised (non-responders)
 
 # generalized function
-diff.expr <- function(expr, meta, annot, st, type = "non_exercised", 
-                      var = "label", fc = 0, plx = 7, fname = "plot_name", 
-                      write_to_text = TRUE, write_to_excel = FALSE){
+diff.expr <- function(expr, expr.fpkm, meta, annot, st, 
+                      type = NULL, gene_list, 
+                      var = var, fc = 0, plx = 7, fname = "plot_name", 
+                      write_to_text = TRUE, write_to_excel = TRUE){
   
   print(paste0("Strain:", st))
   
@@ -100,7 +113,8 @@ diff.expr <- function(expr, meta, annot, st, type = "non_exercised",
   expr <- expr[,rownames(meta)]
   
   # filter gene expression for low expression
-  expr <- filterExpr(expr.counts.mat = expr)
+  print(var_filter)
+  expr <- filterExpr(expr.counts.mat = expr, design = NULL, group = meta[,var], var.filter = var_filter)
   
   if(identical(rownames(meta), colnames(expr))) {
     print("Proceed")
@@ -108,22 +122,26 @@ diff.expr <- function(expr, meta, annot, st, type = "non_exercised",
     break
   }
   
+  # subset fpkm to count matrix samples
+  expr.fpkm <- expr.fpkm[,colnames(expr)]
+  
   # create design
   var <- factor(meta[,var])
   design <- model.matrix(~0+var)
   colnames(design) <- levels(var)
   rownames(design) <- meta$sample
+  print(dim(design))
   
   # voom normalize
-  y <- DGEList(counts = as.matrix(expr), genes = rownames(expr))
+  y <- DGEList(counts = as.matrix(expr))
   y <- calcNormFactors(y)
   v <- voom(counts = y, design = design, plot = FALSE)
   voomData <- v$E
   
   # tsne and pca plot of voom normalized data
   pca.fname <- paste0(st,'-',fname, '.pdf')
-  pca.plot(voomData = voomData, meta = meta, fname = file.path(pca.out, pca.fname))
-  tsne.plot(voomData = voomData, meta = meta, fname = file.path(tsne.out, pca.fname), plx = plx)
+  pca.plot(voomData = voomData, topVar = 500, meta = meta, fname = file.path(pca.out, pca.fname), color_var = 'label', shape_var = 'label')
+  tsne.plot(voomData = voomData, topVar = 500, meta = meta, fname = file.path(tsne.out, pca.fname), plx = plx, color_var = 'label', shape_var = 'label')
   
   # all levels of design
   all.pairs <- design.pairs(levels = colnames(design))
@@ -157,9 +175,8 @@ diff.expr <- function(expr, meta, annot, st, type = "non_exercised",
     } else {
       print("No significant difference")
     }
-    # newList[[i]] <- assign(comp, outputLimma)
   }
-
+  
   # write to excel file
   strain  <- gsub(' ','_',st)
   if(write_to_excel == TRUE){
@@ -187,7 +204,9 @@ diff.expr <- function(expr, meta, annot, st, type = "non_exercised",
 strains <- unique(meta$strain)
 for(i in 1:length(strains)){
   st <- strains[i]
-  diff.expr(expr = expr.counts.mat, meta = meta, annot = expr.counts.annot,
+  diff.expr(expr = expr.counts.mat, expr.fpkm = expr.fpkm, 
+            meta = meta, gene_list = gene_list$genes,
+            annot = expr.counts.annot,
             st = st, 
             type = type, var = col, fc = fc, plx = plx,
             fname = prefix, write_to_excel = excel, write_to_text = text)

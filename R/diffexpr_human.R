@@ -111,8 +111,6 @@ diff.expr <- function(expr, expr.fpkm, meta, annot, type = NULL,
   expr <- expr[,rownames(meta)]
   
   # filter gene expression for low expression
-  # keep.exprs <- filterByExpr(expr)
-  # expr <- expr[keep.exprs,]
   print(var_filter)
   expr <- filterExpr(expr.counts.mat = expr, design = NULL, group = meta[,var], var.filter = var_filter)
   

@@ -5,46 +5,104 @@ Rscript R/collapse_matrix.R \
 --prefix heart \
 --outdir data/mouse_heart
 
+# # Within strain exercised vs nonexercised
+# Rscript R/diffexpr_within_strain.R \
+# --counts_matrix data/mouse_heart/heart_collapsed_counts_matrix.RData \
+# --fpkm_matrix data/mouse_heart/heart_collapsed_fpkm_matrix.RData \
+# --meta_file data/mouse_heart/heart-meta-data.txt \
+# --gene_list data/gene-lists/housekeeping-genes-mouse.txt \
+# --var_filter TRUE \
+# --type 'non_exercised' \
+# --col 'label' \
+# --fc 0 \
+# --plx 3 \
+# --prefix 'within-strain-ex-vs-nonex' \
+# --excel TRUE \
+# --text TRUE \
+# --outdir results/heart/within-strain-ex-vs-nonex
+
+# # Between strain comparison of non-exercised mice
+# Rscript R/diffexpr_between_strain.R \
+# --counts_matrix data/mouse_heart/heart_collapsed_counts_matrix.RData \
+# --fpkm_matrix data/mouse_heart/heart_collapsed_fpkm_matrix.RData \
+# --meta_file data/mouse_heart/heart-meta-data.txt \
+# --gene_list data/gene-lists/housekeeping-genes-mouse.txt \
+# --var_filter TRUE \
+# --type 'non_exercised' \
+# --col 'strain' \
+# --fc 0 \
+# --plx 7 \
+# --prefix 'between-strain-nonex' \
+# --excel TRUE \
+# --text TRUE \
+# --outdir results/heart/between-strain-nonex
+
+# # Between strain comparison of exercised mice (responders + non-responders)
+# Rscript R/diffexpr_between_strain.R \
+# --counts_matrix data/mouse_heart/heart_collapsed_counts_matrix.RData \
+# --fpkm_matrix data/mouse_heart/heart_collapsed_fpkm_matrix.RData \
+# --meta_file data/mouse_heart/heart-meta-data.txt \
+# --gene_list data/gene-lists/housekeeping-genes-mouse.txt \
+# --var_filter TRUE \
+# --type 'exercised' \
+# --col 'strain' \
+# --fc 0 \
+# --plx 7 \
+# --prefix 'between-strain-ex' \
+# --excel TRUE \
+# --text TRUE \
+# --outdir results/heart/between-strain-ex
+
+# novariance filter
 # Within strain exercised vs nonexercised
 Rscript R/diffexpr_within_strain.R \
 --counts_matrix data/mouse_heart/heart_collapsed_counts_matrix.RData \
+--fpkm_matrix data/mouse_heart/heart_collapsed_fpkm_matrix.RData \
 --meta_file data/mouse_heart/heart-meta-data.txt \
+--gene_list data/gene-lists/housekeeping-genes-mouse.txt \
+--var_filter FALSE \
 --type 'non_exercised' \
 --col 'label' \
 --fc 0 \
 --plx 3 \
---prefix within-strain-ex-vs-nonex \
+--prefix 'within-strain-ex-vs-nonex' \
 --excel TRUE \
 --text TRUE \
---outdir results/heart/within-strain-ex-vs-nonex
+--outdir results/heart/within-strain-ex-vs-nonex-novarfilter
 
 # Between strain comparison of non-exercised mice
 Rscript R/diffexpr_between_strain.R \
 --counts_matrix data/mouse_heart/heart_collapsed_counts_matrix.RData \
+--fpkm_matrix data/mouse_heart/heart_collapsed_fpkm_matrix.RData \
 --meta_file data/mouse_heart/heart-meta-data.txt \
+--gene_list data/gene-lists/housekeeping-genes-mouse.txt \
+--var_filter FALSE \
 --type 'non_exercised' \
 --col 'strain' \
 --fc 0 \
 --plx 7 \
---prefix between-strain-nonex \
+--prefix 'between-strain-nonex' \
 --excel TRUE \
 --text TRUE \
---outdir results/heart/between-strain-nonex
+--outdir results/heart/between-strain-nonex-novarfilter
 
 # Between strain comparison of exercised mice (responders + non-responders)
 Rscript R/diffexpr_between_strain.R \
 --counts_matrix data/mouse_heart/heart_collapsed_counts_matrix.RData \
+--fpkm_matrix data/mouse_heart/heart_collapsed_fpkm_matrix.RData \
 --meta_file data/mouse_heart/heart-meta-data.txt \
+--gene_list data/gene-lists/housekeeping-genes-mouse.txt \
+--var_filter FALSE \
 --type 'exercised' \
 --col 'strain' \
 --fc 0 \
 --plx 7 \
---prefix between-strain-ex \
+--prefix 'between-strain-ex' \
 --excel TRUE \
 --text TRUE \
---outdir results/heart/between-strain-ex
+--outdir results/heart/between-strain-ex-novarfilter
 
-# t-SNE sample clustering
+# sample clustering
 Rscript R/clustering.R \
 --fpkm_matrix data/mouse_heart/heart_collapsed_fpkm_matrix.RData \
 --meta_file data/mouse_heart/heart-meta-data.txt \
@@ -86,7 +144,7 @@ Rscript R/expression_boxplots.R \
 Rscript R/expression_boxplots.R \
 --fpkm_matrix data/mouse_heart/heart_collapsed_fpkm_matrix.RData \
 --meta_file data/mouse_heart/heart-meta-data.txt \
---gene_list data/gene-lists/house-keeping-genes.txt \
+--gene_list data/gene-lists/housekeeping-genes-mouse.txt \
 --title "House Keeping Genes" \
 --prefix house_keeping_genes_expr \
 --group FALSE \
@@ -99,7 +157,7 @@ Rscript R/expression_boxplots.R \
 Rscript R/expression_boxplots.R \
 --fpkm_matrix data/mouse_heart/heart_collapsed_fpkm_matrix.RData \
 --meta_file data/mouse_heart/heart-meta-data.txt \
---gene_list data/gene-lists/house-keeping-genes.txt \
+--gene_list data/gene-lists/housekeeping-genes-mouse.txt \
 --title "House Keeping Genes" \
 --prefix house_keeping_genes_expr_byStrain \
 --group FALSE \

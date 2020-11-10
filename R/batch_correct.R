@@ -44,6 +44,8 @@ combined_clin <- combined_clin %>%
 
 # arrange sample identifiers using metadata
 combined_mat <- combined_mat[,rownames(combined_clin)]
+print(colnames(combined_mat))
+print(rownames(combined_clin))
 
 if(identical(rownames(combined_clin), colnames(combined_mat))){
   print("Matching dimensions")
@@ -58,8 +60,8 @@ if(identical(rownames(combined_clin), colnames(combined_mat))){
 
 # batch correct using combat_seq
 batch <- combined_clin$batch
-cov1 <- as.numeric(factor(combined_clin$treat))
-cov2 <- as.numeric(factor(combined_clin$label))
+cov1 <- as.numeric(factor(combined_clin$treat, levels = unique(combined_clin$treat)))
+cov2 <- as.numeric(factor(combined_clin$label, levels = unique(combined_clin$label)))
 covar_mat <- cbind(cov1, cov2)
 corrected_mat <- ComBat_seq(counts = as.matrix(combined_mat), 
                            batch = batch, 

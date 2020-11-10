@@ -49,6 +49,7 @@ dir.create(outdir, recursive = TRUE, showWarnings = F)
 
 # Expression plot of heart-specific genes
 genes <- read.delim(gene_list, stringsAsFactors = F)
+colnames(genes)[1] <- 'gene_symbol'
 genes <- unique(genes)
 gene.sym <- unique(genes$gene_symbol)
 

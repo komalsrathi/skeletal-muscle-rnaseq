@@ -13,8 +13,14 @@ library(xlsx)
 option_list <- list(
   make_option(c("--counts_matrix"), type = "character",
               help = "RData object of counts"),
+  make_option(c("--fpkm_matrix"), type = "character",
+              help = "RData object of fpkm"),
   make_option(c("--meta_file"), type = "character",
               help = "Metadata file for samples (.tsv)"),
+  make_option(c("--gene_list"), type = "character",
+              help = "House keeping gene list for tSNE/PCA plots"),
+  make_option(c("--var_filter"), type = "character", default = TRUE,
+              help = "Variance filter: T or F"),
   make_option(c("--type"), type = "character",
               help = "Type of comparison"),
   make_option(c("--col"), type = "character",
@@ -38,7 +44,10 @@ option_list <- list(
 # parse parameters
 opt <- parse_args(OptionParser(option_list = option_list))
 counts_matrix <- opt$counts_matrix
+fpkm_matrix <- opt$fpkm_matrix
 meta_file <- opt$meta_file
+gene_list <- opt$gene_list
+var_filter <- opt$var_filter
 type <- opt$type
 col <- opt$col
 fc <- opt$fc
@@ -57,9 +66,12 @@ source('R/filterExpr.R')
 
 # read data
 load(counts_matrix)
+load(fpkm_matrix)
 expr.counts.mat <- expr.counts[[1]]
 expr.counts.annot <- expr.counts[[2]]
+expr.fpkm <- expr.fpkm[[1]]
 meta <- read.delim(meta_file, stringsAsFactors = F)
+gene_list <- read.delim(gene_list,  stringsAsFactors = F)
 type <- trimws(strsplit(type,",")[[1]]) 
 plx <- as.numeric(plx)
 fc <- as.numeric(fc)
@@ -78,7 +90,9 @@ dir.create(summary.out, showWarnings = F, recursive = TRUE)
 # 1. All strains together: Exercised (responders) vs Exercised (non-responders)
 
 # generalized function
-diff.expr <- function(expr, meta, annot, type = c("exercised_responders","exercised_non_responders"), 
+diff.expr <- function(expr, expr.fpkm, 
+                      meta, annot, type = c("exercised_responders","exercised_non_responders"),
+                      gene_list,
                       var = 'label', fc = 0, plx = 7, fname = "plot_name", 
                       write_to_excel = TRUE,  write_to_text = TRUE){
   
@@ -92,9 +106,8 @@ diff.expr <- function(expr, meta, annot, type = c("exercised_responders","exerci
   expr <- expr[,rownames(meta)]
   
   # filter gene expression for low expression
-  # keep.exprs <- filterByExpr(expr)
-  # expr <- expr[keep.exprs,]
-  expr <- filterExpr(expr.counts.mat = expr)
+  print(var_filter)
+  expr <- filterExpr(expr.counts.mat = expr, design = NULL, group = meta[,var], var.filter = var_filter)
   
   if(identical(rownames(meta), colnames(expr))) {
     print("Proceed")
@@ -110,15 +123,15 @@ diff.expr <- function(expr, meta, annot, type = c("exercised_responders","exerci
   print(dim(design))
   
   # voom normalize
-  y <- DGEList(counts = as.matrix(expr), genes = rownames(expr))
+  y <- DGEList(counts = as.matrix(expr))
   y <- calcNormFactors(y)
   v <- voom(counts = y, design = design, plot = FALSE)
   voomData <- v$E
   
   # tsne and pca plot of voom normalized data
   pca.fname <- paste0(fname, '.pdf')
-  pca.plot(voomData = voomData, meta = meta, fname = file.path(pca.out, pca.fname))
-  tsne.plot(voomData = voomData, meta = meta, fname = file.path(tsne.out, pca.fname), plx = plx)
+  pca.plot(voomData = voomData, topVar = 500, meta = meta, fname = file.path(pca.out, pca.fname), color_var = 'strain', shape_var = 'label')
+  tsne.plot(voomData = voomData, topVar = 500, meta = meta, fname = file.path(tsne.out, pca.fname), plx = plx, color_var = 'strain', shape_var = 'label')
   
   # all levels of design
   all.pairs <- design.pairs(levels = colnames(design))
@@ -183,7 +196,9 @@ diff.expr <- function(expr, meta, annot, type = c("exercised_responders","exerci
 }
 
 # all strains together: Exercised (responders) vs Exercised (non-responders)
-diff.expr(expr = expr.counts.mat, meta = meta, annot = expr.counts.annot, 
+diff.expr(expr = expr.counts.mat, expr.fpkm = expr.fpkm,
+          meta = meta, gene_list = gene_list$genes,
+          annot = expr.counts.annot, 
           type = type, var = col, fc = fc, plx = plx, 
           fname = prefix, write_to_excel = excel, write_to_text = text)
 
