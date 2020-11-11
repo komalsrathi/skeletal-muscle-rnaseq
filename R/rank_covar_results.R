@@ -23,7 +23,7 @@ convertMouseGeneList <- function(x){
   return(genesV2)
 }
 
-lf <- list.files('results/covars', pattern = ".xlsx", full.names = T)
+lf <- list.files('results/skeletal_muscle/covars/', pattern = ".xlsx", full.names = T)
 lf <- grep('ANT1|IAI|EC77|B6_ME|weight|activity.CLAMS|VO2.end.max|VO2.avg.CLAMS|covar_association', lf, invert = T, value = T)
 
 for(i in 1:length(lf)){
