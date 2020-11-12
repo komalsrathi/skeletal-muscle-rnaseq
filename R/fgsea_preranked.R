@@ -28,7 +28,10 @@ input_dir <- opt$input_dir
 output_dir <- opt$output_dir
 covars <- opt$covars
 covars <- trimws(strsplit(covars,",")[[1]]) 
-covars <- file.path(input_dir, paste0(covars, "_model_output.xlsx"))
+
+# read files from input directory
+lf <- list.files(path = input_dir, full.names = T)
+lf <- grep(paste0(covars, collapse = "|"), lf, value = T)
 
 # create output directory
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
@@ -70,7 +73,9 @@ fgsea_preranked <- function(covar_filename) {
   # pathways
   h_df = msigdbr(species = "Mus musculus", category = c("H"))
   h_list = h_df %>% split(x = .$gene_symbol, f = .$gs_name)
-  c2_df = msigdbr(species = "Mus musculus", category = "C2", subcategory = "CP")
+  c2_df = msigdbr(species = "Mus musculus", category = "C2")
+  c2_df = c2_df %>%
+    dplyr::filter(gs_subcat != "CGP")
   c2_list = c2_df %>% split(x = .$gene_symbol, f = .$gs_name)
   pathways = c(h_list, c2_list)
   
@@ -92,4 +97,4 @@ fgsea_preranked <- function(covar_filename) {
   writexl::write_xlsx(x = fgseaRes, path = fname, format_headers = TRUE)
 }
 
-lapply(X = covars, FUN = function(x) fgsea_preranked(covar_filename = x))
+lapply(X = lf, FUN = function(x) fgsea_preranked(covar_filename = x))
