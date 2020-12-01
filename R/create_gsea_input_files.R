@@ -13,13 +13,16 @@ option_list <- list(
   make_option(c("--meta_file"), type = "character",
               help = "Metadata file"),
   make_option(c("--output_dir"), type = "character",
-              help = "Output directory")
+              help = "Output directory"),
+  make_option(c("--prefix"), type = "character",
+              help = "Prefix for output files")
 )
 # parse parameters
 opt <- parse_args(OptionParser(option_list = option_list))
 count_matrix <- opt$count_matrix
 meta_file <- opt$meta_file
 output_dir <- opt$output_dir
+prefix <- opt$prefix
 # output_dir <- 'results/skeletal_muscle/gsea'
 dir.create(output_dir, showWarnings = F, recursive = T)
 
@@ -115,8 +118,8 @@ gsea.input(counts_collapsed = expr.counts.mat,
            meta = meta_file,
            strains = unique(meta_file$strain),
            groups = c('exercised','non_exercised'),
-           gct_file = file.path(output_dir, 'gsea_all_strains.gct'),
-           cls_file = file.path(output_dir, 'gsea_all_strains.cls'))
+           gct_file = file.path(output_dir, paste0(prefix, '_gsea_all_strains.gct')),
+           cls_file = file.path(output_dir, paste0(prefix, '_gsea_all_strains.cls')))
 
 # within strain
 strains <- unique(meta_file$strain)
@@ -127,6 +130,6 @@ for(i in 1:length(strains)){
              meta = meta_file,
              strains = st,
              groups = c('exercised','non_exercised'),
-             gct_file = file.path(output_dir, paste0(fname, '.gct')),
-             cls_file = file.path(output_dir, paste0(fname, '.cls')))
+             gct_file = file.path(output_dir, paste0(prefix, "_", fname, '.gct')),
+             cls_file = file.path(output_dir, paste0(prefix, "_", fname, '.cls')))
 }
