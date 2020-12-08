@@ -65,8 +65,8 @@ expr.counts.mat <- expr.counts.mat %>%
   column_to_rownames(var = "HGNC.symbol")
 
 # function
-gsea.input <- function(counts_collapsed, meta, groups, strains, gct_file, cls_file) {
-
+gsea.input <- function(counts_collapsed, meta, groups, strains, type = 'within', gct_file, cls_file) {
+  
   # add group to meta file
   meta <- meta %>%
     filter(label %in% groups,
@@ -97,7 +97,11 @@ gsea.input <- function(counts_collapsed, meta, groups, strains, gct_file, cls_fi
   write.table(add, file = gct_file, quote = F, sep = "\t", col.names = F, row.names = F)
   
   # phenotype file
-  groups <- levels(factor(meta$label))
+  if(type == "between"){
+    groups <- unique(meta$strain)
+  } else {
+    groups <- levels(factor(meta$label))
+  }
   ngroups <- length(groups)
   ph <- matrix(nrow = 3, ncol = ncol(gct))
   # first row
@@ -108,7 +112,11 @@ gsea.input <- function(counts_collapsed, meta, groups, strains, gct_file, cls_fi
   ph[2,1:ngroups] <- groups
   ph[2,1] <- paste0('# ', ph[2,1])
   # third row
-  ph[3,] <- meta$label
+  if(type == "between"){
+    ph[3,] <- meta$strain
+  } else {
+    ph[3,] <- meta$label
+  }
   ph <- as.data.frame(ph)
   write.table(ph, file = cls_file, quote = F, sep = " ", na = "", col.names = F, row.names = F)
 }
@@ -118,6 +126,7 @@ gsea.input(counts_collapsed = expr.counts.mat,
            meta = meta_file,
            strains = unique(meta_file$strain),
            groups = c('exercised','non_exercised'),
+           type = "across",
            gct_file = file.path(output_dir, paste0(prefix, '_gsea_all_strains.gct')),
            cls_file = file.path(output_dir, paste0(prefix, '_gsea_all_strains.cls')))
 
@@ -130,6 +139,37 @@ for(i in 1:length(strains)){
              meta = meta_file,
              strains = st,
              groups = c('exercised','non_exercised'),
+             type = "within",
+             gct_file = file.path(output_dir, paste0(prefix, "_", fname, '.gct')),
+             cls_file = file.path(output_dir, paste0(prefix, "_", fname, '.cls')))
+}
+
+# between strain 
+# exercised
+comb_strains <- as.data.frame(t(combn(strains, m = 2)))
+colnames(comb_strains) <- c("strain1", "strain2")
+
+for(i in 1:nrow(comb_strains)){
+  st <- c(as.character(comb_strains[i,])) 
+  fname <- paste('gsea', st[1], 'vs', st[2], 'exercised', sep = "_")
+  gsea.input(counts_collapsed = expr.counts.mat,
+             meta = meta_file,
+             strains = st,
+             groups = 'exercised',
+             type = 'between',
+             gct_file = file.path(output_dir, paste0(prefix, "_", fname, '.gct')),
+             cls_file = file.path(output_dir, paste0(prefix, "_", fname, '.cls')))
+}
+
+# non_exercised
+for(i in 1:nrow(comb_strains)){
+  st <- c(as.character(comb_strains[i,])) 
+  fname <- paste('gsea', st[1], 'vs', st[2], 'non_exercised', sep = "_")
+  gsea.input(counts_collapsed = expr.counts.mat,
+             meta = meta_file,
+             strains = st,
+             groups = 'non_exercised',
+             type = 'between',
              gct_file = file.path(output_dir, paste0(prefix, "_", fname, '.gct')),
              cls_file = file.path(output_dir, paste0(prefix, "_", fname, '.cls')))
 }
