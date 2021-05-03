@@ -95,3 +95,60 @@ gsea.input(counts_collapsed = expr.counts.mat,
            groups = c("399_2", "370_5"), 
            gct_file = file.path(output_dir, paste0(prefix, '_gsea_370_5.gct')),
            cls_file = file.path(output_dir, paste0(prefix, '_gsea_370_5.cls')))
+
+
+# by group
+gsea.input_bygroup <- function(counts_collapsed, meta, groups, gct_file, cls_file) {
+  
+  # add group to meta file
+  meta <- meta %>%
+    filter(treat %in% groups) %>%
+    mutate(tmp = sample) %>%
+    arrange(treat) %>%
+    column_to_rownames('tmp') 
+  
+  # order matrix
+  counts_collapsed <- counts_collapsed[,rownames(meta)]
+  
+  # print dimensions
+  print(groups)
+  print(dim(meta))
+  print(dim(counts_collapsed))
+  print(colnames(counts_collapsed))
+  
+  # gct file
+  gct <- counts_collapsed
+  add <- data.frame(NAME = c("#1.2", nrow(gct), "NAME"), 
+                    Description = c('', ncol(gct), "Description"))
+  total.cols <- ncol(gct) + 2
+  add[,3:total.cols] <- ''
+  colnames(add)[3:total.cols] <- colnames(gct)
+  add[3, 3:total.cols] <- colnames(gct)
+  annot <- data.frame(NAME = rownames(gct), Description = 'na')
+  annot <- merge(annot, gct, by.x = 'NAME', by.y = 'row.names')
+  add <- rbind(add, annot)
+  write.table(add, file = gct_file, quote = F, sep = "\t", col.names = F, row.names = F)
+  
+  # phenotype file
+  groups <- unique(meta$treat)
+  ngroups <- length(groups)
+  ph <- matrix(nrow = 3, ncol = ncol(gct))
+  # first row
+  ph[1,1] <- ncol(gct)
+  ph[1,2] <- ngroups
+  ph[1,3] <- 1
+  # second row
+  ph[2,1:ngroups] <- groups
+  ph[2,1] <- paste0('# ', ph[2,1])
+  # third row
+  ph[3,] <- meta$treat
+  ph <- as.data.frame(ph)
+  write.table(ph, file = cls_file, quote = F, sep = " ", na = "", col.names = F, row.names = F)
+}
+
+# control vs treat
+gsea.input_bygroup(counts_collapsed = expr.counts.mat, 
+           meta = meta_file, 
+           groups = c("Control", "Treat"), 
+           gct_file = file.path(output_dir, paste0(prefix, '_gsea_control_vs_treat.gct')),
+           cls_file = file.path(output_dir, paste0(prefix, '_gsea_control_vs_treat.cls')))
