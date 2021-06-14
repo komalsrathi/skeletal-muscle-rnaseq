@@ -14,3 +14,12 @@ Rscript --vanilla R/run_fgsea.R \
 --type 'd' \
 --ranking 'p' \
 --output_dir 'results/heart/gsea_preranked'
+
+# descending p-value and model r-squared
+# skeletal muscle (only exercised mice)
+Rscript --vanilla R/run_fgsea_v2.R \
+--input_dir 'results/skeletal_muscle/covars' \
+--covars 'delta.running.time, delta.VO2max' \
+--type 'd' \
+--ranking 'p' \
+--output_dir 'results/skeletal_muscle/gsea_preranked'
